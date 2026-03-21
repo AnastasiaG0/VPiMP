@@ -1,0 +1,14 @@
+services:
+  lab1:
+    image: lab1
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    container_name: lab1
+    ports:
+      - 4200:4200
+    volumes:
+      - ./app:/app/app
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
