@@ -1,0 +1,56 @@
+services:
+  # Сервис базы данных PostgreSQL
+  postgres:
+    image: postgres:16
+    container_name: smart_home_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: student    # Имя пользователя из .env
+      POSTGRES_PASSWORD: student_secure_password  # Пароль из .env
+      POSTGRES_DB: smart_home     # Имя БД из .env
+    ports:
+      - "5432:5432"                   # Пробрасываем порт для доступа
+    volumes:
+      - smart_home_postgres:/var/lib/postgresql/data  # Постоянное хранилище данных
+    networks:
+      - smart_home_network            # Сеть для связи с приложением
+    healthcheck:
+      # Проверка готовности базы данных к работе
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s                   # Проверяем каждые 10 секунд
+      timeout: 5s                     # Таймаут проверки
+      retries: 5                      # Количество попыток
+
+  # Сервис приложения
+  app:
+    build: .                          # Собираем из Dockerfile в текущей директории
+    container_name: smart_home_app
+    restart: unless-stopped
+    environment:
+      DB_HOST: postgres               # Хост БД (имя сервиса)
+      DB_PORT: 5432                   # Порт БД
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+    ports:
+      - "4200:4200"                   # Пробрасываем порт приложения
+    depends_on:
+      postgres:
+        condition: service_healthy    # Ждем пока БД будет готова
+    volumes:
+      - ./app:/app/app                # Монтируем код для разработки
+    networks:
+      - smart_home_network
+    
+    # Команда запуска: сначала миграции, потом приложение
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 4200"
+
+# Определяем том для постоянного хранения данных БД
+volumes:
+  smart_home_postgres:
+
+# Определяем сеть для взаимодействия сервисов
+networks:
+  smart_home_network:
