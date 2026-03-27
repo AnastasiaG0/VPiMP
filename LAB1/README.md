@@ -3,26 +3,38 @@
 
 ### Сборка и запуск через docker-compose
 ### Открыть терминал и перейти в папку с лабораторной работой №1
+```bash
 cd D:\VPiMP\LAB1
+```
 
 ### Собрать образ
+```bash
 docker-compose build --no-cache
+```
 
 ### Запустить контейнер
+```bash
 docker-compose up -d
+```
 
 ### Проверить логи
+```bash
 docker-compose logs -f
+```
 
 ### Открыть новый терминал PowerShell и выполнить
 #### Для проверки доступности сервера и навигации по API
 curl http://localhost:4200/
 
 #### Для вычисления количества дней до наступления следующего Нового года
+```bash
 curl http://localhost:4200/info
+```
 
 #### Для проверки состояния сервера
 curl http://localhost:4200/health
 
 ### Остановить контейнер
-docker-compose down
+```bash
+docker-compose stop
+```
