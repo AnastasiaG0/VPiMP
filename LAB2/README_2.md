@@ -32,9 +32,6 @@ docker-compose up --build
 docker ps
 ```
 
-Приложение будет доступно по адресу: http://localhost:4200
-
-
 В конце работы с приложением остановите контейнеры:
 ```bash
 docker-compose stop
@@ -164,4 +161,9 @@ curl.exe -X GET http://localhost:4200/api/v1/devices/1
 10. Проверить, что удаленное устройство не отображается в списке
 ```bash
 curl.exe -X GET "http://localhost:4200/api/v1/devices/?page=1&limit=10"
+```
+
+11. Проверить, что устройство не было удалено физически:
+```bash
+docker exec -it smart_home_db psql -U student -d smart_home -c "SELECT id, name, deleted_at FROM devices WHERE deleted_at IS NOT NULL;"
 ```

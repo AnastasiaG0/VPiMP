@@ -6,7 +6,6 @@ app = FastAPI(title="Счетчик дней до Нового года 2027")
 
 @app.get("/")
 async def root():
-    """Корневой маршрут для проверки работы сервера"""
     return {
         "message": "Сервер работает",
         "endpoints": {
@@ -33,7 +32,6 @@ async def get_days_until_new_year() -> Dict[str, int]:
 
 @app.get("/health")
 async def health_check() -> Dict[str, str]:
-    """Проверка состояния сервера"""
     return {"status": "healthy", "timestamp": datetime.now().isoformat()}
 
 if __name__ == "__main__":
