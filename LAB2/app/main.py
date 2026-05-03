@@ -3,6 +3,7 @@ from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 
 from app.api.v1 import router as v1_router
+from app.auth.router import router as auth_router
 
 app = FastAPI(
     title="Smart Home API",
@@ -12,6 +13,7 @@ app = FastAPI(
 
 # Подключение маршрутов API
 app.include_router(v1_router)
+app.include_router(auth_router)
 
 
 @app.get("/")

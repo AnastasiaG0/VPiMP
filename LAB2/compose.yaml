@@ -5,9 +5,9 @@ services:
     container_name: smart_home_db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: student    # Имя пользователя из .env
-      POSTGRES_PASSWORD: student_secure_password  # Пароль из .env
-      POSTGRES_DB: smart_home     # Имя БД из .env
+      POSTGRES_USER: student
+      POSTGRES_PASSWORD: student_secure_password
+      POSTGRES_DB: smart_home
     ports:
       - "5432:5432"                   # Пробрасываем порт для доступа
     volumes:
@@ -27,11 +27,18 @@ services:
     container_name: smart_home_app
     restart: unless-stopped
     environment:
-      DB_HOST: postgres               # Хост БД (имя сервиса)
-      DB_PORT: 5432                   # Порт БД
+      DB_HOST: postgres
+      DB_PORT: 5432
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: ${DB_NAME}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_ACCESS_EXPIRATION: ${JWT_ACCESS_EXPIRATION}
+      JWT_REFRESH_EXPIRATION: ${JWT_REFRESH_EXPIRATION}
+      YANDEX_CLIENT_ID: ${YANDEX_CLIENT_ID}
+      YANDEX_CLIENT_SECRET: ${YANDEX_CLIENT_SECRET}
+      YANDEX_CALLBACK_URL: ${YANDEX_CALLBACK_URL}
     ports:
       - "4200:4200"                   # Пробрасываем порт приложения
     depends_on:
@@ -39,6 +46,7 @@ services:
         condition: service_healthy    # Ждем пока БД будет готова
     volumes:
       - ./app:/app/app                # Монтируем код для разработки
+      - ./migrations:/app/migrations
     networks:
       - smart_home_network
     

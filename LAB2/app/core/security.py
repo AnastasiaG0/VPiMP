@@ -20,7 +20,7 @@ def hash_password(password: str, salt: Optional[str] = None) -> Tuple[str, str]:
         'sha256',
         password.encode('utf-8'),
         salt.encode('utf-8'),
-        100000  # количество итераций
+        100000  # кол-во итераций
     ).hex()
     
     return hashed, salt
@@ -72,7 +72,10 @@ def verify_access_token(token: str) -> Optional[int]:
 
 
 def verify_refresh_token(token: str) -> Optional[int]:
-    """Проверяет Refresh Token, возвращает user_id или None"""
+    """
+    Проверяет Refresh Token.
+    Возвращает user_id или None при ошибке.
+    """
     try:
         payload = jwt.decode(token, settings.JWT_REFRESH_SECRET, algorithms=["HS256"])
         if payload.get("type") != "refresh":

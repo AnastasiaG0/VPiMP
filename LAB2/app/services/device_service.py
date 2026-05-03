@@ -9,31 +9,25 @@ from app.schemas.device import DeviceCreate, DeviceUpdate
 
 class DeviceService:
     # Инициализация сервиса с сессией бд
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, user_id: int):
         self.db = db
+        self.user_id = user_id
     
-    # Получение устройства по ID
+    # Получение устройства текущего пользователя по ID 
     def get_device(self, device_id: int) -> Optional[Device]:
         return self.db.query(Device).filter(
             Device.id == device_id,
+            Device.user_id == self.user_id,
             Device.deleted_at.is_(None)
         ).first()
     
-    # Получение устройства по имени
+    # Получение устройства текущего пользователя по имени
     def get_device_by_name(self, name: str) -> Optional[Device]:
         return self.db.query(Device).filter(
             Device.name == name,
+            Device.user_id == self.user_id,
             Device.deleted_at.is_(None)
         ).first()
-    
-    """# Получение устройства по имени для обновления
-    def get_device_by_name_for_update(self, name: str, exclude_id: int) -> Optional[Device]:
-        
-        return self.db.query(Device).filter(
-            Device.name == name,
-            Device.id != exclude_id,
-            Device.deleted_at.is_(None)
-        ).first()"""
     
     # Получение списка устройств с пагинацией и фильтрацией
     def get_devices(
@@ -44,9 +38,11 @@ class DeviceService:
         location: Optional[str] = None,
         status: Optional[bool] = None
     ) -> Tuple[List[Device], int]:
-  
-        # Только активные устройства
-        query = self.db.query(Device).filter(Device.deleted_at.is_(None))
+        # Только активные устройства текущего пользователя
+        query = self.db.query(Device).filter(
+            Device.user_id == self.user_id,
+            Device.deleted_at.is_(None)
+        )
         
         # Применяем фильтры, если указаны
         if device_type:
@@ -66,8 +62,11 @@ class DeviceService:
     
     # Создание нового устройства
     def create_device(self, device_data: DeviceCreate) -> Device:
-        # Преобразуем DTO в модель
-        device = Device(**device_data.model_dump())
+        # Преобразуем DTO в модель и привязываем устройство к текущему пользователю
+        device = Device(
+            **device_data.model_dump(),
+            user_id=self.user_id
+        )
         
         # Добавляем в БД
         self.db.add(device)
@@ -122,52 +121,18 @@ class DeviceService:
         
         return True
     
-    # Получение всех типов устройств
+    # Получение всех типов устройств текущего пользователя
     def get_device_types(self) -> List[str]:
         types = self.db.query(Device.device_type).filter(
+            Device.user_id == self.user_id,
             Device.deleted_at.is_(None)
         ).distinct().all()
         return [t[0] for t in types]
     
-    # Получение всех локаций устройств
+    # Получение всех локаций устройств текущего пользователя
     def get_locations(self) -> List[str]:
         locations = self.db.query(Device.location).filter(
+            Device.user_id == self.user_id,
             Device.deleted_at.is_(None)
         ).distinct().all()
         return [l[0] for l in locations]
-    
-    '''
-    # Получение списка удаленных устройств
-    def get_deleted_devices(self, skip: int = 0, limit: int = 10) -> Tuple[List[Device], int]:
-        query = self.db.query(Device).filter(Device.deleted_at.is_not(None))
-        total = query.count()
-        devices = query.offset(skip).limit(limit).all()
-        return devices, total
-    
-    # Восстановление мягко удаленного устройства
-    def restore_device(self, device_id: int) -> Optional[Device]:
-        # Находим удаленное устройство
-        device = self.db.query(Device).filter(
-            Device.id == device_id,
-            Device.deleted_at.is_not(None)
-        ).first()
-        
-        if not device:
-            return None
-        
-        device.deleted_at = None
-        self.db.commit()
-        self.db.refresh(device)
-        
-        return device
-    
-    # Физическое удаление устройства из бд
-    def hard_delete_device(self, device_id: int) -> bool:
-        device = self.db.query(Device).filter(Device.id == device_id).first()
-        if not device:
-            return False
-        
-        self.db.delete(device)
-        self.db.commit()
-        
-        return True'''

@@ -18,7 +18,7 @@ from app.core.oauth import (
 )
 from app.core.config import settings
 
-router = APIRouter(prefix="/auth", tags=["Authentication"])
+router = APIRouter(prefix="/auth", tags=["Authentication"], redirect_slashes=False)
 
 
 # --- Регистрация и вход ---
@@ -58,9 +58,9 @@ async def login(
         key="access_token",
         value=access_token,
         httponly=True,
-        secure=False,  # в production должно быть True (HTTPS)
+        secure=False,
         samesite="lax",
-        max_age=settings.JWT_ACCESS_EXPIRATION * 60  # в секундах
+        max_age=settings.JWT_ACCESS_EXPIRATION * 60
     )
     response.set_cookie(
         key="refresh_token",
@@ -242,10 +242,29 @@ async def oauth_yandex_callback(
     )
     
     # Редирект на фронтенд
-    return RedirectResponse(url="http://localhost:4200")  # изменить на адрес фронтенда
+    response = RedirectResponse(url="http://localhost:4200", status_code=302)
+    
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=False,
+        samesite="lax",
+        max_age=settings.JWT_ACCESS_EXPIRATION * 60
+    )
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=False,
+        samesite="lax",
+        max_age=settings.JWT_REFRESH_EXPIRATION * 60
+    )
+
+    return response
 
 
-# --- Сброс пароля (упрощенный) ---
+# --- Сброс пароля ---
 
 @router.post("/forgot-password", response_model=TokenResponse)
 async def forgot_password(
@@ -257,11 +276,9 @@ async def forgot_password(
     token = service.generate_password_reset_token(request.email)
     
     if token:
-        # В реальном проекте здесь отправка email
         print(f"Reset token for {request.email}: {token}")
         return {"message": "If email exists, reset link has been sent"}
     
-    # Всегда возвращаем успех, чтобы не раскрывать существование email
     return {"message": "If email exists, reset link has been sent"}
 
 

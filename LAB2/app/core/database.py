@@ -3,13 +3,13 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 from typing import Generator
 
-from app.config import settings
+from app.core.config import settings
 
 # Создаем движок для подключения к PostgreSQL
 engine = create_engine(
     settings.DATABASE_URL,
-    pool_pre_ping=True,  # Проверяем соединение перед использованием
-    echo=False           # Установите True для логирования SQL запросов
+    pool_pre_ping=True,
+    echo=False
 )
 
 # Создаем фабрику сессий для работы с БД

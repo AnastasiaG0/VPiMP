@@ -107,12 +107,6 @@ class AuthService:
         token_hash = hash_token(refresh_token)
         expires_at = datetime.now(timezone.utc) + timedelta(minutes=settings.JWT_REFRESH_EXPIRATION)
         
-        # Удаляем старые неотозванные токены пользователя? (по желанию)
-        # self.db.query(RefreshToken).filter(
-        #     RefreshToken.user_id == user_id,
-        #     RefreshToken.revoked_at.is_(None)
-        # ).delete()
-        
         db_token = RefreshToken(
             user_id=user_id,
             token_hash=token_hash,
@@ -179,19 +173,18 @@ class AuthService:
         self.db.commit()
         return True
     
-    # --- Сброс пароля (упрощенная версия) ---
+    # --- Сброс пароля ---
     
     def generate_password_reset_token(self, email: str) -> Optional[str]:
-        """Генерирует токен для сброса пароля (в реальном проекте используйте JWT)"""
+        """Генерирует токен для сброса пароля"""
         user = self.get_user_by_email(email)
         if not user:
             return None
-        # Для простоты возвращаем email (в реальности - подписанный JWT)
         return email
     
     def reset_password(self, email: str, token: str, new_password: str) -> bool:
         """Сбрасывает пароль"""
-        if token != email:  # упрощенная проверка
+        if token != email:
             return False
         
         user = self.get_user_by_email(email)

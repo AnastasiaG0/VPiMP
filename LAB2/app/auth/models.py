@@ -12,11 +12,7 @@ class User(Base):
     email = Column(String(100), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=True)  # может быть null для OAuth-пользователей
     salt = Column(String(255), nullable=True)
-    
-    # OAuth поля
     yandex_id = Column(String(255), unique=True, nullable=True)
-    
-    # Информация о пользователе
     full_name = Column(String(100), nullable=True)
     
     # Временные метки
@@ -26,6 +22,8 @@ class User(Base):
     
     # Связи
     refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
+    
+    devices = relationship("Device", back_populates="user", cascade="all, delete-orphan")
     
     @property
     def is_active(self) -> bool:
@@ -38,7 +36,7 @@ class RefreshToken(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    token_hash = Column(String(255), nullable=False, unique=True)  # храним хеш токена
+    token_hash = Column(String(255), nullable=False, unique=True)
     expires_at = Column(DateTime(timezone=True), nullable=False)
     revoked_at = Column(DateTime(timezone=True), nullable=True)  # для logout-all
     created_at = Column(DateTime(timezone=True), server_default=func.now())

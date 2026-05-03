@@ -2,12 +2,15 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from typing import Optional
 
-from app.database import get_db
+from app.core.database import get_db
 from app.services.device_service import DeviceService
 from app.schemas.device import (
     DeviceCreate, DeviceUpdate, DeviceResponse, 
     DeviceListResponse
 )
+
+from app.auth.dependencies import get_current_user
+from app.auth.models import User
 
 # Создаем роутер для устройств
 router = APIRouter()
@@ -40,7 +43,8 @@ async def get_devices(
         None, 
         description="Фильтр по статусу (true - вкл, false - выкл)"
     ),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Получение списка активных устройств с пагинацией и фильтрацией.
@@ -53,7 +57,7 @@ async def get_devices(
     
     Возвращает список устройств и метаинформацию о пагинации.
     """
-    service = DeviceService(db)
+    service = DeviceService(db, current_user.id)
     
     # Вычисляем offset для SQL запроса
     skip = (page - 1) * limit
@@ -85,7 +89,8 @@ async def get_devices(
 @router.get("/{device_id}", response_model=DeviceResponse)
 async def get_device(
     device_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Получение устройства по ID.
@@ -94,7 +99,7 @@ async def get_device(
     
     Возвращает устройство, если оно существует и не удалено.
     """
-    service = DeviceService(db)
+    service = DeviceService(db, current_user.id)
     device = service.get_device(device_id)
     
     if not device:
@@ -114,7 +119,8 @@ async def get_device(
 )
 async def create_device(
     device_data: DeviceCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Создание нового устройства.
@@ -123,7 +129,7 @@ async def create_device(
     
     Возвращает созданное устройство с присвоенным ID.
     """
-    service = DeviceService(db)
+    service = DeviceService(db, current_user.id)
 
     # Проверка на дубликат
     existing = service.get_device_by_name(device_data.name)
@@ -141,10 +147,11 @@ async def create_device(
 async def put_device(
     device_id: int,
     device_data: DeviceCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """ Полное обновление устройства """
-    service = DeviceService(db)
+    service = DeviceService(db, current_user.id)
     device = service.update_device_full(device_id, device_data)
     
     if not device:
@@ -160,10 +167,11 @@ async def put_device(
 async def patch_device(
     device_id: int,
     device_data: DeviceUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """ Частичное обновление устройства """
-    service = DeviceService(db)
+    service = DeviceService(db, current_user.id)
     device = service.update_device(device_id, device_data)
     
     if not device:
@@ -178,7 +186,8 @@ async def patch_device(
 @router.delete("/{device_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_device(
     device_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Мягкое удаление устройства.
@@ -187,7 +196,7 @@ async def delete_device(
     
     Устройство не удаляется физически, а помечается как удаленное.
     """
-    service = DeviceService(db)
+    service = DeviceService(db, current_user.id)
     success = service.delete_device(device_id)
     
     if not success:
@@ -199,25 +208,27 @@ async def delete_device(
 
 @router.get("/types/", response_model=list[str])
 async def get_device_types(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Получение всех типов устройств.
     
     Возвращает список уникальных типов устройств.
     """
-    service = DeviceService(db)
+    service = DeviceService(db, current_user.id)
     return service.get_device_types()
 
 
 @router.get("/locations/", response_model=list[str])
 async def get_locations(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Получение всех локаций.
     
     Возвращает список уникальных расположений устройств.
     """
-    service = DeviceService(db)
+    service = DeviceService(db, current_user.id)
     return service.get_locations()

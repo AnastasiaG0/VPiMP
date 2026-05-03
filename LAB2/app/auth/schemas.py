@@ -27,12 +27,12 @@ class UserResponse(BaseModel):
 
 
 class TokenResponse(BaseModel):
-    """Ответ после успешного входа/обновления (для документации)"""
+    """Ответ после успешного входа/обновления"""
     message: str
 
 
 class RefreshTokenRequest(BaseModel):
-    """Для обновления токенов (тело не нужно, так как токен из куки)"""
+    """Для обновления токенов"""
     pass
 
 
@@ -55,5 +55,5 @@ class ForgotPasswordRequest(BaseModel):
 class ResetPasswordRequest(BaseModel):
     """Установка нового пароля"""
     email: EmailStr
-    token: str  # токен из письма (для упрощения - email, но в реальном проекте это должен быть JWT)
+    token: str
     new_password: str = Field(..., min_length=6)

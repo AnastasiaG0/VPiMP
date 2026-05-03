@@ -1,6 +1,7 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Float, Text
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Float, Text, ForeignKey
 from sqlalchemy.sql import func
-from app.database import Base
+from sqlalchemy.orm import relationship
+from app.core.database import Base
 
 
 class Device(Base):
@@ -8,6 +9,7 @@ class Device(Base):
     
     # Первичный ключ с автоинкрементом
     id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     
     # Основные поля устройства
     name = Column(String(100), nullable=False, index=True)
@@ -21,3 +23,6 @@ class Device(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     deleted_at = Column(DateTime(timezone=True), nullable=True)
+
+    # Связь с пользователем
+    user = relationship("User", back_populates="devices")   

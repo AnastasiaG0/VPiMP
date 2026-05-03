@@ -4,7 +4,7 @@ from typing import Dict, Any, Optional
 from fastapi import HTTPException
 from app.core.config import settings
 
-# Хранилище для state-параметров (в production используйте Redis или БД)
+# Хранилище для state-параметров
 _states = {}
 
 
@@ -16,7 +16,7 @@ def generate_oauth_state() -> str:
 
 
 def verify_oauth_state(state: str) -> bool:
-    """Проверяет state"""
+    """Проверяет state при возврате от провайдера"""
     if state in _states:
         del _states[state]
         return True
@@ -53,7 +53,7 @@ async def exchange_yandex_code_for_token(code: str) -> Optional[str]:
 
 
 async def get_yandex_user_info(access_token: str) -> Optional[Dict[str, Any]]:
-    """Получает информацию о пользователе от Yandex"""
+    """Получает информацию о пользователе от Yandex (email, имя, id)"""
     async with httpx.AsyncClient() as client:
         response = await client.get(
             "https://login.yandex.ru/info",
