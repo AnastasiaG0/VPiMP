@@ -21,7 +21,7 @@ services:
       timeout: 5s                     # Таймаут проверки
       retries: 5                      # Количество попыток
 
-  # Сервис приложения (Development с документацией)
+  # Сервис приложения (Production)
   app:
     build: .                          # Собираем из Dockerfile в текущей директории
     container_name: smart_home_app
@@ -29,14 +29,14 @@ services:
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_USER: student
-      DB_PASSWORD: student_secure_password
-      DB_NAME: smart_home
-      APP_ENV: development
-      JWT_ACCESS_SECRET: your_super_secret_access_key_change_in_prod_12345
-      JWT_REFRESH_SECRET: your_super_secret_refresh_key_change_in_prod_67890
-      JWT_ACCESS_EXPIRATION: 15
-      JWT_REFRESH_EXPIRATION: 10080
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+      APP_ENV: production
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_ACCESS_EXPIRATION: ${JWT_ACCESS_EXPIRATION}
+      JWT_REFRESH_EXPIRATION: ${JWT_REFRESH_EXPIRATION}
       YANDEX_CLIENT_ID: ${YANDEX_CLIENT_ID}
       YANDEX_CLIENT_SECRET: ${YANDEX_CLIENT_SECRET}
       YANDEX_CALLBACK_URL: ${YANDEX_CALLBACK_URL}
@@ -45,9 +45,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy    # Ждем пока БД будет готова
-    volumes:
-      - ./app:/app/app                # Монтируем код для разработки
-      - ./migrations:/app/migrations
     networks:
       - smart_home_network
     

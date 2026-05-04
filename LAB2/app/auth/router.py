@@ -8,7 +8,8 @@ from app.core.database import get_db
 from app.auth.service import AuthService
 from app.auth.schemas import (
     UserCreate, UserLogin, UserResponse, TokenResponse,
-    WhoamiResponse, ForgotPasswordRequest, ResetPasswordRequest
+    WhoamiResponse, ForgotPasswordRequest, ResetPasswordRequest,
+    OAuthAuthorizeResponse
 )
 from app.auth.dependencies import get_current_user, get_current_user_optional
 from app.auth.models import User
@@ -23,7 +24,44 @@ router = APIRouter(prefix="/auth", tags=["Authentication"], redirect_slashes=Fal
 
 # --- Регистрация и вход ---
 
-@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/register", 
+    response_model=UserResponse, 
+    status_code=status.HTTP_201_CREATED,
+    summary="Регистрация нового пользователя",
+    description="Создает нового пользователя с указанными email, паролем и именем.",
+    responses={
+        201: {
+            "description": "Пользователь успешно создан",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "id": 1,
+                        "email": "user@example.com",
+                        "full_name": "Иван Иванов",
+                        "created_at": "2024-01-15T10:30:00Z"
+                    }
+                }
+            }
+        },
+        409: {
+            "description": "Пользователь с таким email уже существует",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Email already registered"}
+                }
+            }
+        },
+        400: {
+            "description": "Ошибка валидации данных",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Validation error", "errors": []}
+                }
+            }
+        }
+    }
+)
 async def register(
     user_data: UserCreate,
     db: Session = Depends(get_db)
@@ -34,7 +72,30 @@ async def register(
     return user
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post(
+    "/login", 
+    response_model=TokenResponse,
+    summary="Вход в систему",
+    description="Аутентификация пользователя. В случае успеха устанавливает HttpOnly cookies с access_token и refresh_token.",
+    responses={
+        200: {
+            "description": "Успешный вход",
+            "content": {
+                "application/json": {
+                    "example": {"message": "Successfully logged in"}
+                }
+            }
+        },
+        401: {
+            "description": "Неверный email или пароль",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Invalid email or password"}
+                }
+            }
+        }
+    }
+)
 async def login(
     response: Response,
     login_data: UserLogin,
@@ -74,7 +135,30 @@ async def login(
     return {"message": "Successfully logged in"}
 
 
-@router.post("/refresh", response_model=TokenResponse)
+@router.post(
+    "/refresh", 
+    response_model=TokenResponse,
+    summary="Обновление токенов",
+    description="Использует refresh_token из cookies для получения новой пары токенов.",
+    responses={
+        200: {
+            "description": "Токены успешно обновлены",
+            "content": {
+                "application/json": {
+                    "example": {"message": "Tokens refreshed"}
+                }
+            }
+        },
+        401: {
+            "description": "Refresh token отсутствует или недействителен",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Invalid or expired refresh token"}
+                }
+            }
+        }
+    }
+)
 async def refresh(
     request: Request,
     response: Response,
@@ -119,7 +203,42 @@ async def refresh(
     return {"message": "Tokens refreshed"}
 
 
-@router.get("/whoami", response_model=WhoamiResponse)
+@router.get(
+    "/whoami", 
+    response_model=WhoamiResponse,
+    summary="Проверка статуса аутентификации",
+    description="Возвращает информацию о текущем аутентифицированном пользователе.",
+    responses={
+        200: {
+            "description": "Информация о статусе аутентификации",
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "authenticated": {
+                            "summary": "Пользователь аутентифицирован",
+                            "value": {
+                                "authenticated": True,
+                                "user": {
+                                    "id": 1,
+                                    "email": "user@example.com",
+                                    "full_name": "Иван Иванов",
+                                    "created_at": "2024-01-15T10:30:00Z"
+                                }
+                            }
+                        },
+                        "unauthenticated": {
+                            "summary": "Пользователь не аутентифицирован",
+                            "value": {
+                                "authenticated": False,
+                                "user": None
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+)
 async def whoami(user: Optional[User] = Depends(get_current_user_optional)):
     """Проверка статуса аутентификации"""
     if user:
@@ -130,7 +249,30 @@ async def whoami(user: Optional[User] = Depends(get_current_user_optional)):
     return WhoamiResponse(authenticated=False, user=None)
 
 
-@router.post("/logout", response_model=TokenResponse)
+@router.post(
+    "/logout", 
+    response_model=TokenResponse,
+    summary="Выход из системы",
+    description="Завершает текущую сессию, отзывая refresh_token и удаляя cookies.",
+    responses={
+        200: {
+            "description": "Успешный выход",
+            "content": {
+                "application/json": {
+                    "example": {"message": "Successfully logged out"}
+                }
+            }
+        },
+        401: {
+            "description": "Не аутентифицирован",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Not authenticated"}
+                }
+            }
+        }
+    }
+)
 async def logout(
     request: Request,
     response: Response,
@@ -149,7 +291,25 @@ async def logout(
     return {"message": "Successfully logged out"}
 
 
-@router.post("/logout-all", response_model=TokenResponse)
+@router.post(
+    "/logout-all", 
+    response_model=TokenResponse,
+    summary="Завершение всех сессий",
+    description="Отзывает все refresh_token пользователя, завершая все активные сессии.",
+    responses={
+        200: {
+            "description": "Все сессии завершены",
+            "content": {
+                "application/json": {
+                    "example": {"message": "All sessions terminated"}
+                }
+            }
+        },
+        401: {
+            "description": "Не аутентифицирован"
+        }
+    }
+)
 async def logout_all(
     response: Response,
     user: User = Depends(get_current_user),
@@ -167,7 +327,16 @@ async def logout_all(
 
 # --- OAuth ---
 
-@router.get("/oauth/yandex")
+@router.get(
+    "/oauth/yandex",
+    summary="OAuth через Яндекс",
+    description="Инициирует OAuth 2.0 поток аутентификации через Яндекс ID.",
+    responses={
+        307: {
+            "description": "Редирект на страницу авторизации Яндекса"
+        }
+    }
+)
 async def oauth_yandex():
     """Инициация входа через Yandex ID"""
     state = generate_oauth_state()
@@ -175,7 +344,37 @@ async def oauth_yandex():
     return RedirectResponse(url=redirect_url)
 
 
-@router.get("/oauth/yandex/callback")
+@router.get(
+    "/oauth/yandex/callback",
+    summary="Callback OAuth Яндекс",
+    description="Обработчик callback URL от Яндекс ID после авторизации пользователя.",
+    responses={
+        307: {
+            "description": "Редирект на главную страницу после успешной авторизации"
+        },
+        400: {
+            "description": "Ошибка при обмене кода или получении данных пользователя",
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "invalid_state": {
+                            "summary": "Неверный параметр state",
+                            "value": {"detail": "Invalid state parameter"}
+                        },
+                        "code_exchange_failed": {
+                            "summary": "Не удалось обменять код",
+                            "value": {"detail": "Failed to exchange code for token"}
+                        },
+                        "userinfo_failed": {
+                            "summary": "Не удалось получить данные пользователя",
+                            "value": {"detail": "Failed to get user info"}
+                        }
+                    }
+                }
+            }
+        }
+    }
+)
 async def oauth_yandex_callback(
     code: str,
     state: str,
@@ -223,6 +422,9 @@ async def oauth_yandex_callback(
     # Генерируем локальные токены
     access_token, refresh_token = service.generate_tokens(user.id)
     
+    # Редирект на фронтенд с установкой cookies
+    response = RedirectResponse(url="http://localhost:4200", status_code=302)
+
     # Устанавливаем cookies
     response.set_cookie(
         key="access_token",
@@ -242,31 +444,27 @@ async def oauth_yandex_callback(
     )
     
     # Редирект на фронтенд
-    response = RedirectResponse(url="http://localhost:4200", status_code=302)
-    
-    response.set_cookie(
-        key="access_token",
-        value=access_token,
-        httponly=True,
-        secure=False,
-        samesite="lax",
-        max_age=settings.JWT_ACCESS_EXPIRATION * 60
-    )
-    response.set_cookie(
-        key="refresh_token",
-        value=refresh_token,
-        httponly=True,
-        secure=False,
-        samesite="lax",
-        max_age=settings.JWT_REFRESH_EXPIRATION * 60
-    )
-
     return response
 
 
 # --- Сброс пароля ---
 
-@router.post("/forgot-password", response_model=TokenResponse)
+@router.post(
+    "/forgot-password", 
+    response_model=TokenResponse,
+    summary="Запрос сброса пароля",
+    description="Отправляет токен сброса пароля на указанный email (в упрощенной реализации - возвращает токен в ответе).",
+    responses={
+        200: {
+            "description": "Запрос обработан",
+            "content": {
+                "application/json": {
+                    "example": {"message": "If email exists, reset link has been sent"}
+                }
+            }
+        }
+    }
+)
 async def forgot_password(
     request: ForgotPasswordRequest,
     db: Session = Depends(get_db)
@@ -282,7 +480,30 @@ async def forgot_password(
     return {"message": "If email exists, reset link has been sent"}
 
 
-@router.post("/reset-password", response_model=TokenResponse)
+@router.post(
+    "/reset-password", 
+    response_model=TokenResponse,
+    summary="Сброс пароля",
+    description="Устанавливает новый пароль с использованием токена сброса.",
+    responses={
+        200: {
+            "description": "Пароль успешно изменен",
+            "content": {
+                "application/json": {
+                    "example": {"message": "Password has been reset"}
+                }
+            }
+        },
+        400: {
+            "description": "Неверный или истекший токен",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Invalid or expired token"}
+                }
+            }
+        }
+    }
+)
 async def reset_password(
     request: ResetPasswordRequest,
     db: Session = Depends(get_db)

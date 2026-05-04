@@ -24,15 +24,23 @@ class Settings:
     # Настройки приложения
     APP_HOST: str = os.getenv("APP_HOST", "0.0.0.0")
     APP_PORT: int = int(os.getenv("APP_PORT", "4200"))
+    APP_ENV: str = os.getenv("APP_ENV", "development")
 
+    # Настройки JWT
     JWT_ACCESS_SECRET: str = os.getenv("JWT_ACCESS_SECRET", "access_secret")
     JWT_REFRESH_SECRET: str = os.getenv("JWT_REFRESH_SECRET", "refresh_secret")
     JWT_ACCESS_EXPIRATION: int = int(os.getenv("JWT_ACCESS_EXPIRATION", "15"))
     JWT_REFRESH_EXPIRATION: int = int(os.getenv("JWT_REFRESH_EXPIRATION", "10080"))
 
+    # Настройки Yandex OAuth
     YANDEX_CLIENT_ID: str = os.getenv("YANDEX_CLIENT_ID", "")
     YANDEX_CLIENT_SECRET: str = os.getenv("YANDEX_CLIENT_SECRET", "")
     YANDEX_CALLBACK_URL: str = os.getenv("YANDEX_CALLBACK_URL", "http://localhost:4200/auth/oauth/yandex/callback")
+
+    @property
+    def is_docs_enabled(self) -> bool:
+        """Документация доступна только в режиме разработки"""
+        return self.APP_ENV == "development"
 
 # Создаем экземпляр настроек для использования в приложении
 settings = Settings()

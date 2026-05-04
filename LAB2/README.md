@@ -1,24 +1,8 @@
-# Лабораторная работа №3
-## Авторизация и аутентификация (JWT, OAuth2, Cookies)
+# Лабораторная работа №4
+## Автоматизированное документирование REST API с использованием OpenAPI (Swagger)
 
 ## Описание проекта
-API для управления устройствами умного дома с полноценной системой аутентификации и авторизации.
-
-### Основной функционал
-
-**Управление устройствами (из ЛР2):**
-- CRUD операции для устройств
-- Пагинация и фильтрация
-- Soft Delete (мягкое удаление)
-
-**Система аутентификации (ЛР3):**
-- Регистрация и вход пользователей
-- JWT токены (Access и Refresh)
-- HttpOnly cookies для безопасной передачи токенов
-- Хеширование паролей с уникальной солью
-- OAuth 2.0 (Yandex ID)
-- Управление сессиями (logout, logout-all)
-- Сброс пароля
+API для управления устройствами умного дома с поддержкой аутентификации (JWT + OAuth Яндекс).
 
 ## Технологии
 - FastAPI - веб-фреймворк
@@ -28,84 +12,20 @@ API для управления устройствами умного дома �
 - Docker / Docker Compose - контейнеризация
 - JWT - токены доступа
 - OAuth 2.0 - вход через Yandex ID
+- OpenAPI/Swagger - автоматическая документация API
 
 ## Требования
 - Docker и Docker Compose
 - Git
-- Аккаунт разработчика в системе OAuth-провайдера Yandex ID для получения ключа доступа
+- Настроенное окружение из Лабораторной работы №3 (приложение с авторизацией, CRUD ресурсами, Docker).
 
-## Установка и запуск
-
+## Настройка переменных окружения
 Скопируйте `.env.example` в `.env` и настройте переменные:
 ```bash
 cp .env.example .env
 ```
 
-Запустите приложение:
-```bash
-docker-compose up --build
-```
-
-Создайте новый терминал и проверьте, что контейнеры работают:
-```bash
-docker ps
-```
-
-В конце работы с приложением остановите контейнеры:
-```bash
-docker-compose stop
-```
-
-Для остановки и удаления контейнеров используйте команду:
-```bash
-docker-compose down
-```
-
-Чтобы остановить и удалить контейнеры вместе с томами, используйте команду:
-```bash
-docker-compose down -v
-```
-
-### API Эндпоинты
-| Метод | URI | Описание | Статус успеха | Доступ |
-| :--- | :--- | :--- | :--- | :--- |
-| POST | `/auth/register` | Регистрация нового пользователя | 201 Created | Public |
-| POST | `/auth/login` | Вход (установка cookies) | 200 OK | Public |
-| POST | `/auth/refresh` | Обновление пары токенов | 200 OK | Public (требуется valid Refresh Cookie) |
-| GET | `/auth/whoami` | Проверка статуса и данные пользователя | 200 OK | Private |
-| POST | `/auth/logout` | Завершение текущей сессии | 200 OK | Private |
-| POST | `/auth/logout-all` | Завершение всех сессий пользователя | 200 OK | Private |
-| GET | `/auth/oauth/yandex` | Инициация входа через Yandex ID | 302 Redirect | Public |
-| GET | `/auth/oauth/yandex/callback` | Обработка ответа от Yandex | 302 Redirect | Public |
-| POST | `/auth/forgot-password` | Запрос на сброс пароля | 200 OK | Public |
-| POST | `/auth/reset-password` | Установка нового пароля | 200 OK | Public |
-| GET | `/api/v1/devices` | Получить список устройств (с пагинацией) | 200 OK | Private |
-| GET | `/api/v1/devices/{id}` | Получить устройство по ID | 200 OK | Private |
-| POST | `/api/v1/devices` | Создать устройство | 201 Created | Private |
-| PUT | `/api/v1/devices/{id}` | Полное обновление устройства | 200 OK | Private |
-| PATCH | `/api/v1/devices/{id}` | Частичное обновление устройства | 200 OK | Private |
-| DELETE | `/api/v1/devices/{id}` | Пометить устройство как удаленное (Soft Delete) | 204 No Content | Private |
-| GET | `/api/v1/devices/types/` | Получить список всех типов устройств | 200 OK | Private |
-| GET | `/api/v1/devices/locations/` | Получить список всех локаций устройств | 200 OK | Private |
-
-### Миграции
-Создайте миграцию:
-```bash
-docker exec smart_home_app alembic revision --autogenerate -m "Add users and refresh_tokens"
-```
-
-Примените миграцию:
-```bash
-docker exec smart_home_app alembic upgrade head
-```
-
-Проверьте, что таблица создана:
-```bash
-docker exec -it smart_home_db psql -U student -d smart_home -c "\dt"
-```
-
-### Переменные окружения
-Пример файла переменных окружения:
+### Пример файла переменных окружения:
 ```bash
 DB_USER=your_db_user
 DB_PASSWORD=your_db_password
@@ -115,6 +35,7 @@ DB_PORT=5432
 
 APP_HOST=0.0.0.0
 APP_PORT=4200
+APP_ENV=development   # или production
 
 JWT_ACCESS_SECRET=change_me_super_secret_access_key
 JWT_REFRESH_SECRET=change_me_super_secret_refresh_key
@@ -126,172 +47,84 @@ YANDEX_CLIENT_SECRET=your_yandex_client_secret
 YANDEX_CALLBACK_URL=http://localhost:4200/auth/oauth/yandex/callback
 ```
 
-### Примеры запросов (cURL)
-1. Регистрация пользователя
+## Запуск
+### Development режим (с документацией)
+Запустите приложение:
 ```bash
-curl -X POST http://localhost:4200/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"email":"user1@example.com","password":"secret123","full_name":"User One"}'
+docker-compose up --build
 ```
 
-2. Регистрация второго пользователя (с таким же паролем для проверки соли)
+Документация доступна по адресу:
+http://localhost:4200/api/docs
+
+### Production режим (без документации)
+В файле .env измените строку:
 ```bash
-curl -X POST http://localhost:4200/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"email":"user2@example.com","password":"secret123","full_name":"User Two"}'
+APP_ENV=development
 ```
 
-3.  Вход пользователя
+на:
 ```bash
-curl -X POST http://localhost:4200/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"user1@example.com","password":"secret123"}' \
-  -c cookies_user1.txt
+APP_ENV=production
 ```
 
-4. Проверка статуса и данных пользователя
+Запустите приложение:
 ```bash
-curl -X GET http://localhost:4200/auth/whoami -b cookies_user1.txt
+docker-compose -f docker-compose.prod.yaml up --build
 ```
 
-5. Создание устройства
+Проверьте ответ API:
+http://localhost:4200/
+Ожидаемый ответ:
 ```bash
-curl -X POST http://localhost:4200/api/v1/devices \
-  -H "Content-Type: application/json" \
-  -b cookies_user1.txt \
-  -d '{"name":"Living Room Lamp","device_type":"lamp","location":"Living Room","status":true,"value":75,"description":"Smart LED lamp"}'
+{
+    "message": "Smart Home API",
+    "version": "2.0.0",
+    "docs": "/api/docs"
+}
 ```
 
-6. Получение списка всех устройств с пагинацией
+Проверьте состояние сервера, перейдя по ссылке:
+http://localhost:4200/health
+Ожидаемый ответ:
 ```bash
-curl -X GET "http://localhost:4200/api/v1/devices?page=1&limit=10" -b cookies_user1.txt
+{
+    "status":"healthy"
+}
 ```
 
-7. Фильтрация устройств по типу
+Проверьте доступ к документации, перейдя по ссылке:
+http://localhost:4200/api/docs
+Ожидаемый ответ:
 ```bash
-curl -X GET "http://localhost:4200/api/v1/devices?device_type=lamp" -b cookies_user1.txt
+{
+    "detail":"Not Found"
+}
 ```
 
-8. Фильтрация устройств по локации
-```bash
-curl -X GET "http://localhost:4200/api/v1/devices?location=Living%20Room" -b cookies_user1.txt
-```
+## API Эндпоинты
+### Аутентификация
+| Метод | URI | Описание | Доступ |
+| :--- | :--- | :--- | :--- |
+| POST | `/auth/register` | Регистрация нового пользователя | Public |
+| POST | `/auth/login` | Вход (установка cookies) | Public |
+| POST | `/auth/refresh` | Обновление пары токенов | Public (требуется valid Refresh Cookie) |
+| GET | `/auth/whoami` | Проверка статуса и данные пользователя | Private |
+| POST | `/auth/logout` | Завершение текущей сессии | Private |
+| POST | `/auth/logout-all` | Завершение всех сессий пользователя | Private |
+| GET | `/auth/oauth/yandex` | Инициация входа через Yandex ID | Public |
+| GET | `/auth/oauth/yandex/callback` | Обработка ответа от Yandex | Public |
+| POST | `/auth/forgot-password` | Запрос на сброс пароля | Public |
+| POST | `/auth/reset-password` | Установка нового пароля | Public |
 
-9. Фильтрация устройств по статусу
-```bash
-curl -X GET "http://localhost:4200/api/v1/devices?status=false" -b cookies_user1.txt
-```
-
-10. Получение устройства по ID
-```bash
-curl -X GET "http://localhost:4200/api/v1/devices/1" -b cookies_user1.txt
-```
-
-11. Частичное обновление устройства (PATCH)
-```bash
-curl -X PATCH http://localhost:4200/api/v1/devices/2 \
-  -H "Content-Type: application/json" \
-  -b cookies_user1.txt \
-  -d '{"value":85,"status":false}'
-```
-
-12. Полное обновление устройства (PUT)
-```bash
-curl -X PUT http://localhost:4200/api/v1/devices/2 \
-  -H "Content-Type: application/json" \
-  -b cookies_user1.txt \
-  -d '{"name":"Living Room Smart Lamp","device_type":"lamp","location":"Living Room","status":true,"value":90,"description":"Updated smart LED lamp"}'
-```
-
-13. Получение всех типов устройств пользователя
-```bash
-curl -X GET "http://localhost:4200/api/v1/devices/types/" -b cookies_user1.txt
-```
-
-14. Получение всех локаций устройств пользователя
-```bash
-curl -X GET "http://localhost:4200/api/v1/devices/locations/" -b cookies_user1.txt
-```
-
-15. Обновление токенов (Refresh)
-```bash
-curl -X POST http://localhost:4200/auth/refresh -b cookies_user1.txt -c cookies_user1.txt
-```
-
-16. Выход из текущей сессии (Logout)
-```bash
-curl -X POST http://localhost:4200/auth/logout -b cookies_user1.txt -c cookies_user1.txt
-```
-
-17. Завершение всех сессий пользователя (Logout-all)
-```bash
-curl -X POST http://localhost:4200/auth/logout-all -b cookies_user1.txt -c cookies_user1.txt
-```
-
-18. Попытка доступа к защищенному ресурсу без токена
-```bash
-curl -X GET "http://localhost:4200/api/v1/devices"
-```
-
-19. Попытка получить устройство другого пользователя
-```bash
-curl -X GET "http://localhost:4200/api/v1/devices/1" -b cookies_user2.txt
-```
-
-20. Мягкое удаление устройства (Soft Delete)
-```bash
-curl -X DELETE "http://localhost:4200/api/v1/devices/1" -b cookies_user1.txt
-```
-
-21. Проверить, что устройство не было удалено физически
-```bash
-docker exec -it smart_home_db psql -U student -d smart_home -c "SELECT id, name, deleted_at FROM devices WHERE deleted_at IS NOT NULL;"
-```
-
-22. Запрос на сброс пароля (Forgot Password)
-```bash
-curl -X POST http://localhost:4200/auth/forgot-password \
-  -H "Content-Type: application/json" \
-  -d '{"email":"user1@example.com"}'
-```
-
-23. Сброс пароля (Reset Password)
-```bash
-curl -X POST http://localhost:4200/auth/reset-password \
-  -H "Content-Type: application/json" \
-  -d '{"email":"user1@example.com","token":"user1@example.com","new_password":"newsecret456"}'
-```
-
-24. Инициация входа через Yandex OAuth.
-Необходимо открыть в браузере http://localhost:4200/auth/oauth/yandex
-
-25. Проверка Cookies после входа
-```bash
-cat cookies.txt
-```
-
-26. Очистить все таблицы базы данных
-```bash
-docker exec -it smart_home_db psql -U student -d smart_home -c "TRUNCATE TABLE refresh_tokens, devices, users RESTART IDENTITY CASCADE;"
-```
-
-27. Проверка в базе данных
-Подключение к PostgreSQL
-```bash
-docker exec -it smart_home_db psql -U student -d smart_home -c "TRUNCATE TABLE refresh_tokens, devices, users RESTART IDENTITY CASCADE;"
-```
-
-Просмотр пользователей и их солей
-```bash
-SELECT id, email, salt, password_hash FROM users;
-```
-
-Просмотр устройств с меткой удаления
-```bash
-SELECT id, name, user_id, deleted_at FROM devices;
-```
-
-Просмотр активных Refresh токенов
-```bash
-SELECT id, user_id, expires_at, revoked_at FROM refresh_tokens;
-```
+### Устройства
+| Метод | URI | Описание | Доступ |
+| :--- | :--- | :--- | :--- |
+| GET | `/api/v1/devices` | Получить список устройств (с пагинацией) | Private |
+| GET | `/api/v1/devices/{id}` | Получить устройство по ID | Private |
+| POST | `/api/v1/devices` | Создать устройство | Private |
+| PUT | `/api/v1/devices/{id}` | Полное обновление устройства | Private |
+| PATCH | `/api/v1/devices/{id}` | Частичное обновление устройства | Private |
+| DELETE | `/api/v1/devices/{id}` | Пометить устройство как удаленное (Soft Delete) | Private |
+| GET | `/api/v1/devices/types/` | Получить список всех типов устройств | Private |
+| GET | `/api/v1/devices/locations/` | Получить список всех локаций устройств | Private |
