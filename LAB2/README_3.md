@@ -278,7 +278,7 @@ docker exec -it smart_home_db psql -U student -d smart_home -c "TRUNCATE TABLE r
 27. Проверка в базе данных
 Подключение к PostgreSQL
 ```bash
-docker exec -it smart_home_db psql -U student -d smart_home -c "TRUNCATE TABLE refresh_tokens, devices, users RESTART IDENTITY CASCADE;"
+docker exec -it smart_home_db psql -U student -d smart_home
 ```
 
 Просмотр пользователей и их солей

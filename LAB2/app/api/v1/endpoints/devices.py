@@ -15,7 +15,6 @@ from app.auth.models import User
 # Создаем роутер для устройств
 router = APIRouter()
 
-
 @router.get(
     "/", 
     response_model=DeviceListResponse,

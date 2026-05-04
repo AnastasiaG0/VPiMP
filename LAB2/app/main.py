@@ -85,9 +85,34 @@ def custom_openapi():
             "type": "http",
             "scheme": "bearer",
             "bearerFormat": "JWT",
-            "description": "Альтернативный способ: передавайте токен в заголовке Authorization: Bearer <token>"
+            "description": "Альтернативный способ: Bearer <token>"
         }
     }
+
+    public_paths = [
+        "/",
+        "/health",
+        "/auth/register",
+        "/auth/login",
+        "/auth/refresh",
+        "/auth/forgot-password",
+        "/auth/reset-password",
+        "/auth/oauth/yandex",
+        "/auth/oauth/yandex/callback",
+        "/auth/whoami",  # whoami - публичный, он сам определяет статус
+    ]
+    
+    for path in openapi_schema["paths"]:
+        # Проверяем, является ли путь публичным
+        is_public = any(path.startswith(public_path) for public_path in public_paths)
+        
+        for method in openapi_schema["paths"][path]:
+            if not is_public:
+                # Добавляем security к защищенным эндпоинтам
+                openapi_schema["paths"][path][method]["security"] = [
+                    {"cookieAuth": []},
+                    {"bearerAuth": []}
+                ]
     
     app.openapi_schema = openapi_schema
     return app.openapi_schema
