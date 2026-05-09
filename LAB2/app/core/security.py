@@ -1,6 +1,7 @@
 import hashlib
 import secrets
 import jwt
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Tuple, Optional
 from app.core.config import settings
@@ -37,15 +38,25 @@ def hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
-def generate_access_token(user_id: int) -> str:
-    """Генерирует JWT Access Token"""
+def generate_jti() -> str:
+    """Генерирует уникальный JWT ID (JTI)"""
+    return str(uuid.uuid4())
+
+
+def generate_access_token(user_id: int) -> Tuple[str, str]:
+    """
+    Генерирует JWT Access Token.
+    Возвращает (token, jti)
+    """
+    jti = generate_jti()
     payload = {
         "sub": str(user_id),
         "type": "access",
+        "jti": jti,
         "exp": datetime.now(timezone.utc) + timedelta(minutes=settings.JWT_ACCESS_EXPIRATION)
     }
-    return jwt.encode(payload, settings.JWT_ACCESS_SECRET, algorithm="HS256")
-
+    token = jwt.encode(payload, settings.JWT_ACCESS_SECRET, algorithm="HS256")
+    return token, jti
 
 def generate_refresh_token(user_id: int) -> str:
     """Генерирует JWT Refresh Token"""
@@ -57,18 +68,20 @@ def generate_refresh_token(user_id: int) -> str:
     return jwt.encode(payload, settings.JWT_REFRESH_SECRET, algorithm="HS256")
 
 
-def verify_access_token(token: str) -> Optional[int]:
+def verify_access_token(token: str) -> Tuple[Optional[int], Optional[str]]:
     """
     Проверяет и декодирует Access Token.
-    Возвращает user_id или None при ошибке.
+    Возвращает (user_id, jti) или (None, None) при ошибке.
     """
     try:
         payload = jwt.decode(token, settings.JWT_ACCESS_SECRET, algorithms=["HS256"])
         if payload.get("type") != "access":
-            return None
-        return int(payload.get("sub"))
+            return None, None
+        user_id = int(payload.get("sub"))
+        jti = payload.get("jti")
+        return user_id, jti
     except jwt.InvalidTokenError:
-        return None
+        return None, None
 
 
 def verify_refresh_token(token: str) -> Optional[int]:

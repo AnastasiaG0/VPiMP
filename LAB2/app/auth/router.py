@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from typing import Optional
-import secrets
+#import secrets
 
 from app.core.database import get_db
 from app.auth.service import AuthService
@@ -18,6 +18,8 @@ from app.core.oauth import (
     exchange_yandex_code_for_token, get_yandex_user_info
 )
 from app.core.config import settings
+from app.core.security import verify_access_token
+from app.core.cache import cache_service
 
 router = APIRouter(prefix="/auth", tags=["Authentication"], redirect_slashes=False)
 
@@ -239,14 +241,56 @@ async def refresh(
         }
     }
 )
-async def whoami(user: Optional[User] = Depends(get_current_user_optional)):
-    """Проверка статуса аутентификации"""
-    if user:
+async def whoami(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """Проверка статуса аутентификации с кешированием профиля"""
+    access_token = request.cookies.get("access_token")
+    if not access_token:
+        return WhoamiResponse(authenticated=False, user=None)
+    
+    user_id, jti = verify_access_token(access_token)
+    if not user_id:
+        return WhoamiResponse(authenticated=False, user=None)
+    
+    # Пытаемся получить профиль из кеша
+    cached_user = cache_service.get("user:profile", user_id)
+    if cached_user:
         return WhoamiResponse(
             authenticated=True,
-            user=UserResponse.model_validate(user)
+            user=UserResponse(**cached_user)
         )
-    return WhoamiResponse(authenticated=False, user=None)
+    
+    # Cache miss - получаем из БД
+    service = AuthService(db)
+    user = service.get_user_by_id(user_id)
+    
+    if not user or not user.is_active:
+        return WhoamiResponse(authenticated=False, user=None)
+    
+    # Проверяем JTI в Redis
+    if not cache_service.has_jti(user_id, jti):
+        return WhoamiResponse(authenticated=False, user=None)
+    
+    # Сохраняем в кеш
+    user_data = {
+        "id": user.id,
+        "email": user.email,
+        "full_name": user.full_name,
+        "created_at": user.created_at.isoformat() if user.created_at else None,
+    }
+    cache_service.set("user:profile", user_data, 300, user_id)
+    
+    return WhoamiResponse(
+        authenticated=True,
+        user=UserResponse(
+            id=user.id,
+            email=user.email,
+            full_name=user.full_name,
+            created_at=user.created_at
+        )
+    )
 
 
 @router.post(
@@ -281,10 +325,18 @@ async def logout(
 ):
     """Завершение текущей сессии"""
     refresh_token = request.cookies.get("refresh_token")
-    if refresh_token:
+
+    # Извлекаем JTI из текущего Access Token
+    access_token = request.cookies.get("access_token")
+    _, jti = verify_access_token(access_token) if access_token else (None, None)
+
+    if refresh_token or jti:
         service = AuthService(db)
-        service.revoke_token(refresh_token)
+        service.revoke_token(refresh_token, jti, user.id)
     
+    # Инвалидируем кеш профиля
+    cache_service.delete("user:profile", user.id)
+
     response.delete_cookie("access_token")
     response.delete_cookie("refresh_token")
     
@@ -319,10 +371,13 @@ async def logout_all(
     service = AuthService(db)
     service.revoke_all_user_tokens(user.id)
     
+    # Инвалидируем кеш профиля
+    cache_service.delete("user:profile", user.id)
+    
     response.delete_cookie("access_token")
     response.delete_cookie("refresh_token")
     
-    return {"message": "All sessions terminated"}
+    return {"message": "All sessions terminated"}   
 
 
 # --- OAuth ---
@@ -469,13 +524,11 @@ async def forgot_password(
     request: ForgotPasswordRequest,
     db: Session = Depends(get_db)
 ):
-    """Запрос на сброс пароля (отправляет токен на email)"""
     service = AuthService(db)
     token = service.generate_password_reset_token(request.email)
     
     if token:
         print(f"Reset token for {request.email}: {token}")
-        return {"message": "If email exists, reset link has been sent"}
     
     return {"message": "If email exists, reset link has been sent"}
 
@@ -517,5 +570,10 @@ async def reset_password(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid or expired token"
         )
+    
+    # Инвалидируем кеш профиля
+    user = service.get_user_by_email(request.email)
+    if user:
+        cache_service.delete("user:profile", user.id)
     
     return {"message": "Password has been reset"}

@@ -37,6 +37,13 @@ class Settings:
     YANDEX_CLIENT_SECRET: str = os.getenv("YANDEX_CLIENT_SECRET", "")
     YANDEX_CALLBACK_URL: str = os.getenv("YANDEX_CALLBACK_URL", "http://localhost:4200/auth/oauth/yandex/callback")
 
+    # Настройки Redis
+    REDIS_HOST: str = os.getenv("REDIS_HOST", "localhost")
+    REDIS_PORT: int = int(os.getenv("REDIS_PORT", "6379"))
+    REDIS_PASSWORD: str = os.getenv("REDIS_PASSWORD", "")
+    REDIS_DB: int = int(os.getenv("REDIS_DB", "0"))
+    CACHE_TTL_DEFAULT: int = int(os.getenv("CACHE_TTL_DEFAULT", "300"))
+
     @property
     def is_docs_enabled(self) -> bool:
         """Документация доступна только в режиме разработки"""

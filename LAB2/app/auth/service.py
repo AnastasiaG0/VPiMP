@@ -1,5 +1,4 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import and_
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Tuple
 from fastapi import HTTPException, status
@@ -11,6 +10,7 @@ from app.core.security import (
     generate_refresh_token, verify_refresh_token, hash_token
 )
 from app.core.config import settings
+from app.core.cache import cache_service
 
 
 class AuthService:
@@ -99,8 +99,11 @@ class AuthService:
     # --- Токены ---
     
     def generate_tokens(self, user_id: int) -> Tuple[str, str]:
-        """Генерирует пару токенов и сохраняет Refresh Token в БД"""
-        access_token = generate_access_token(user_id)
+        """Генерирует пару токенов и сохраняет JTI в Redis и Refresh Token в БД"""
+        access_token, jti = generate_access_token(user_id)
+        # Сохраняем JTI в Redis с TTL равным времени жизни Access Token
+        cache_service.set_jti(user_id, jti, settings.JWT_ACCESS_EXPIRATION * 60)
+
         refresh_token = generate_refresh_token(user_id)
         
         # Сохраняем хеш Refresh Token
@@ -142,27 +145,29 @@ class AuthService:
         # Генерируем новую пару
         return self.generate_tokens(user_id)
     
-    def revoke_token(self, refresh_token: str) -> bool:
-        """Отзывает конкретный Refresh Token (logout)"""
-        user_id = verify_refresh_token(refresh_token)
-        if not user_id:
-            return False
+    def revoke_token(self, refresh_token: str, access_jti: str = None, user_id: int = None) -> bool:
+        """Отзывает конкретный Refresh Token и соответствующий Access Token"""
+        token_user_id = verify_refresh_token(refresh_token) if refresh_token else user_id
+        if token_user_id:
+            token_hash = hash_token(refresh_token)
+            db_token = self.db.query(RefreshToken).filter(
+                RefreshToken.token_hash == token_hash,
+                RefreshToken.user_id == token_user_id,
+                RefreshToken.revoked_at.is_(None)
+            ).first()
+            
+            if db_token:
+                db_token.revoked_at = datetime.now(timezone.utc)
+                self.db.commit()
         
-        token_hash = hash_token(refresh_token)
-        db_token = self.db.query(RefreshToken).filter(
-            RefreshToken.token_hash == token_hash,
-            RefreshToken.user_id == user_id,
-            RefreshToken.revoked_at.is_(None)
-        ).first()
+        # Отзываем Access Token по JTI
+        if access_jti and user_id:
+            cache_service.delete_jti(user_id, access_jti)
         
-        if db_token:
-            db_token.revoked_at = datetime.now(timezone.utc)
-            self.db.commit()
-            return True
-        return False
+        return True
     
     def revoke_all_user_tokens(self, user_id: int) -> bool:
-        """Отзывает все Refresh Token пользователя (logout-all)"""
+        """Отзывает все Refresh Token пользователя и все Access Token через Redis"""
         tokens = self.db.query(RefreshToken).filter(
             RefreshToken.user_id == user_id,
             RefreshToken.revoked_at.is_(None)
@@ -171,6 +176,10 @@ class AuthService:
         for token in tokens:
             token.revoked_at = datetime.now(timezone.utc)
         self.db.commit()
+        
+        # Отзываем все Access Token через Redis
+        cache_service.delete_all_user_jti(user_id)
+        
         return True
     
     # --- Сброс пароля ---
