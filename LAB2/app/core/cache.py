@@ -110,11 +110,11 @@ class CacheService:
             print(f"Cache delete pattern error: {e}")
         return 0
     
-    def set_jti(self, user_id: int, jti: str, ttl: int) -> bool:
+    def set_jti(self, user_id: str, jti: str, ttl: int) -> bool:
         """Сохраняет JTI токена в Redis"""
         return self.set("auth:access", "valid", ttl, user_id, jti)
-    
-    def has_jti(self, user_id: int, jti: str) -> bool:
+
+    def has_jti(self, user_id: str, jti: str) -> bool:
         """Проверяет наличие JTI в Redis (активен ли токен)"""
         if not self.is_available():
             return True
@@ -124,12 +124,12 @@ class CacheService:
             return self.client.exists(key) > 0
         except:
             return True
-    
-    def delete_jti(self, user_id: int, jti: str) -> bool:
+
+    def delete_jti(self, user_id: str, jti: str) -> bool:
         """Удаляет JTI токена (logout)"""
         return self.delete("auth:access", user_id, jti)
-    
-    def delete_all_user_jti(self, user_id: int) -> int:
+
+    def delete_all_user_jti(self, user_id: str) -> int:
         """Удаляет все JTI токены пользователя (logout all)"""
         return self.delete_pattern(f"auth:access:{user_id}")
 

@@ -10,15 +10,15 @@ class Settings:
     
     # Настройки базы данных
     DB_HOST: str = os.getenv("DB_HOST", "localhost")
-    DB_PORT: int = int(os.getenv("DB_PORT", "5432"))
-    DB_USER: str = os.getenv("DB_USER", "postgres")
-    DB_PASSWORD: str = os.getenv("DB_PASSWORD", "postgres")
+    DB_PORT: int = int(os.getenv("DB_PORT", "27017"))
+    DB_USER: str = os.getenv("DB_USER", "student")
+    DB_PASSWORD: str = os.getenv("DB_PASSWORD", "student_secure_password")
     DB_NAME: str = os.getenv("DB_NAME", "smart_home")
     
-    # URL для подключения к базе данных
-    DATABASE_URL: str = (
-        f"postgresql://{DB_USER}:{DB_PASSWORD}@"
-        f"{DB_HOST}:{DB_PORT}/{DB_NAME}"
+    # URI для подключения к MongoDB
+    MONGO_URI: str = os.getenv(
+        "MONGO_URI",
+        f"mongodb://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}?authSource=admin"
     )
     
     # Настройки приложения

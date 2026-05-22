@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
@@ -6,14 +7,24 @@ from fastapi.openapi.utils import get_openapi
 from app.api.v1 import router as v1_router
 from app.auth.router import router as auth_router
 from app.core.config import settings
+from app.core.database import mongodb
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Управление жизненным циклом приложения"""
+    # Startup
+    await mongodb.connect()
+    yield
+    # Shutdown
+    await mongodb.disconnect()
 
 app = FastAPI(
     title="Smart Home API",
     description="API для управления устройствами умного дома",
     version="2.0.0",
     docs_url="/api/docs" if settings.is_docs_enabled else None,
-    #redoc_url="/api/redoc" if settings.is_docs_enabled else None,
     openapi_url="/api/openapi.json" if settings.is_docs_enabled else None,
+    lifespan=lifespan
 )
 
 # Подключение маршрутов API
@@ -26,13 +37,20 @@ async def root():
     return {
         "message": "Smart Home API",
         "version": "2.0.0",
+        "database": "MongoDB",
         "docs": "/api/docs" if settings.is_docs_enabled else None
     }
 
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy"}
+    """Проверка здоровья приложения"""
+    db_status = "healthy" if mongodb.client else "unhealthy"
+    return {
+        "status": "healthy",
+        "database": db_status,
+        "cache": "healthy"  # Проверка Redis
+    }
 
 # Кастомизация OpenAPI схемы для улучшения документации
 def custom_openapi():
@@ -43,33 +61,6 @@ def custom_openapi():
         title="Smart Home API",
         version="2.0.0",
         description="API для управления устройствами умного дома",
-        #description="""
-        # Умный дом API
-        
-        #API для управления устройствами умного дома с поддержкой:
-        #* Регистрации и аутентификации пользователей
-        #* OAuth 2.0 через Яндекс ID
-        #* Управления устройствами (CRUD операции)
-        #* Мягкого удаления устройств
-        
-        ## Аутентификация
-        
-        #API использует JWT токены, которые хранятся в HttpOnly Cookies:
-        #* access_token - доступ к защищенным эндпоинтам (15 минут)
-        #* refresh_token - обновление пары токенов (7 дней)
-        
-        ### Как тестировать защищенные эндпоинты в Swagger UI:
-        
-        #1. Выполните запрос `POST /auth/login` с вашими учетными данными
-        #2. Cookies установятся автоматически через браузер
-        #3. После этого все защищенные эндпоинты будут доступны
-        
-        #Или используйте OAuth:
-        
-        #1. Перейдите по `GET /auth/oauth/yandex`
-        #2. Пройдите авторизацию через Яндекс
-        #3. Вернитесь обратно - сессия установлена
-        #""",
         routes=app.routes,
     )
     

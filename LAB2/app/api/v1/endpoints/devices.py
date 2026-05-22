@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.orm import Session
 from typing import Optional
 
 from app.core.database import get_db
@@ -10,7 +9,7 @@ from app.schemas.device import (
 )
 
 from app.auth.dependencies import get_current_user
-from app.auth.models import User
+from app.models.user import User
 
 # Создаем роутер для устройств
 router = APIRouter()
@@ -98,7 +97,7 @@ async def get_devices(
         None, 
         description="Фильтр по статусу (true - вкл, false - выкл)"
     ),
-    db: Session = Depends(get_db),
+    db = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     service = DeviceService(db, current_user.id)
@@ -107,7 +106,7 @@ async def get_devices(
     skip = (page - 1) * limit
     
     # Получаем устройства и общее количество
-    devices, total = service.get_devices(
+    devices, total = await service.get_devices(
         skip=skip,
         limit=limit,
         device_type=device_type,
@@ -120,7 +119,7 @@ async def get_devices(
     
     # Возвращаем ответ с данными и метаинформацией
     return DeviceListResponse(
-        data=[DeviceResponse.model_validate(device) for device in devices],
+        data=[DeviceResponse.model_validate(device.dict()) for device in devices],
         meta={
             "total": total,           # Всего записей
             "page": page,             # Текущая страница
@@ -173,13 +172,13 @@ async def get_devices(
     }
 )
 async def get_device(
-    device_id: int,
-    db: Session = Depends(get_db),
+    device_id: str,
+    db = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Получение устройства по ID."""
     service = DeviceService(db, current_user.id)
-    device = service.get_device(device_id)
+    device = await service.get_device(device_id)
     
     if not device:
         raise HTTPException(
@@ -187,7 +186,7 @@ async def get_device(
             detail="Device not found"
         )
     
-    return DeviceResponse.model_validate(device)
+    return DeviceResponse.model_validate(device.dict())
 
 
 @router.post(
@@ -243,22 +242,22 @@ async def get_device(
 )
 async def create_device(
     device_data: DeviceCreate,
-    db: Session = Depends(get_db),
+    db = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Создание нового устройства."""
     service = DeviceService(db, current_user.id)
 
     # Проверка на дубликат
-    existing = service.get_device_by_name(device_data.name)
+    existing = await service.get_device_by_name(device_data.name)
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Device with name '{device_data.name}' already exists"
         )
 
-    device = service.create_device(device_data)
-    return DeviceResponse.model_validate(device)
+    device = await service.create_device(device_data)
+    return DeviceResponse.model_validate(device.dict())
 
 
 @router.put(
@@ -299,14 +298,14 @@ async def create_device(
     }
 )
 async def put_device(
-    device_id: int,
+    device_id: str,
     device_data: DeviceCreate,
-    db: Session = Depends(get_db),
+    db = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """ Полное обновление устройства """
     service = DeviceService(db, current_user.id)
-    device = service.update_device_full(device_id, device_data)
+    device = await service.update_device_full(device_id, device_data)
     
     if not device:
         raise HTTPException(
@@ -314,7 +313,7 @@ async def put_device(
             detail="Device not found"
         )
     
-    return DeviceResponse.model_validate(device)
+    return DeviceResponse.model_validate(device.dict())
 
 
 @router.patch(
@@ -355,14 +354,14 @@ async def put_device(
     }
 )
 async def patch_device(
-    device_id: int,
+    device_id: str,
     device_data: DeviceUpdate,
-    db: Session = Depends(get_db),
+    db = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """ Частичное обновление устройства """
     service = DeviceService(db, current_user.id)
-    device = service.update_device(device_id, device_data)
+    device = await service.update_device(device_id, device_data)
     
     if not device:
         raise HTTPException(
@@ -370,7 +369,7 @@ async def patch_device(
             detail="Device not found"
         )
     
-    return DeviceResponse.model_validate(device)
+    return DeviceResponse.model_validate(device.dict())
 
 
 @router.delete(
@@ -396,13 +395,13 @@ async def patch_device(
     }
 )
 async def delete_device(
-    device_id: int,
-    db: Session = Depends(get_db),
+    device_id: str,
+    db = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Мягкое удаление устройства."""
     service = DeviceService(db, current_user.id)
-    success = service.delete_device(device_id)
+    success = await service.delete_device(device_id)
     
     if not success:
         raise HTTPException(
@@ -431,7 +430,7 @@ async def delete_device(
     }
 )
 async def get_device_types(
-    db: Session = Depends(get_db),
+    db = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
@@ -440,7 +439,7 @@ async def get_device_types(
     Возвращает список уникальных типов устройств.
     """
     service = DeviceService(db, current_user.id)
-    return service.get_device_types()
+    return await service.get_device_types()
 
 
 @router.get(
@@ -463,7 +462,7 @@ async def get_device_types(
     }
 )
 async def get_locations(
-    db: Session = Depends(get_db),
+    db = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
@@ -472,4 +471,4 @@ async def get_locations(
     Возвращает список уникальных расположений устройств.
     """
     service = DeviceService(db, current_user.id)
-    return service.get_locations()
+    return await service.get_locations()

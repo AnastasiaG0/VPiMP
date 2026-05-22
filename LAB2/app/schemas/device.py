@@ -42,9 +42,11 @@ class DeviceBase(BaseModel):
         example="LED лампа с регулировкой яркости"
     )
 
+
 class DeviceCreate(DeviceBase):
     """Схема для создания нового устройства"""
     pass
+
 
 class DeviceUpdate(BaseModel):
     """Схема для частичного обновления устройства"""
@@ -55,15 +57,16 @@ class DeviceUpdate(BaseModel):
     value: Optional[float] = Field(None, example=21.0)
     description: Optional[str] = Field(None, max_length=500, example="Обновленное описание")
 
+
 # Ответ API. Добавляет поля, которые генерируются сервером
 class DeviceResponse(DeviceBase):
     """Ответ API с данными устройства"""
-    id: int = Field(..., description="Уникальный идентификатор устройства", example=1)
+    id: str = Field(..., description="Уникальный идентификатор устройства", example="673c4f5a8b1f2e3d4c5a6b7c")  # <-- ИСПРАВЛЕНО: str вместо int
     created_at: datetime = Field(..., description="Дата создания устройства")
     updated_at: Optional[datetime] = Field(None, description="Дата последнего обновления")
     
-    # Настройка для работы с SQLAlchemy моделями
     model_config = ConfigDict(from_attributes=True)
+
 
 class PaginationParams(BaseModel):
     """Параметры пагинации"""
@@ -80,6 +83,7 @@ class PaginationParams(BaseModel):
         description="Количество элементов на странице (от 1 до 100)",
         example=10
     )
+
 
 class DeviceListResponse(BaseModel):
     """Ответ со списком устройств"""

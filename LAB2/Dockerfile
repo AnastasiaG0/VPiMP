@@ -10,10 +10,9 @@ ENV PYTHONUNBUFFERED=1
 # Устанавливаем рабочую директорию
 WORKDIR /app
 
-# Устанавливаем системные зависимости для psycopg2 (драйвер PostgreSQL)
+# Устанавливаем системные зависимости
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
-    libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Копируем файл с зависимостями
@@ -24,8 +23,7 @@ RUN python -m pip install --no-cache-dir -r requirements.txt
 
 # Копируем исходный код приложения
 COPY app/ ./app/
-COPY migrations/ ./migrations/
-COPY alembic.ini .
+#COPY alembic.ini .
 
 # Создаем непривилегированного пользователя для запуска приложения и переключаемся на него
 RUN adduser -u 5678 --disabled-password --gecos "" appuser && chown -R appuser /app

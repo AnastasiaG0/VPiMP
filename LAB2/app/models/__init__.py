@@ -1,7 +1,7 @@
 """
 Database models
 """
+from app.models.user import User, RefreshToken
 from app.models.device import Device
-from app.auth.models import User, RefreshToken
 
-__all__ = ["Device", "User", "RefreshToken"]
+__all__ = ["User", "RefreshToken", "Device"]

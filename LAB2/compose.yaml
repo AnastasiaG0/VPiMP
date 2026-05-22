@@ -1,22 +1,22 @@
 services:
-  # Сервис базы данных PostgreSQL
-  postgres:
-    image: postgres:16
-    container_name: smart_home_db
+  # Сервис базы данных MongoDB
+  mongodb:
+    image: mongo:6
+    container_name: smart_home_mongo
     restart: unless-stopped
     environment:
-      POSTGRES_USER: student
-      POSTGRES_PASSWORD: student_secure_password
-      POSTGRES_DB: smart_home
+      MONGO_INITDB_ROOT_USERNAME: student
+      MONGO_INITDB_ROOT_PASSWORD: student_secure_password
+      MONGO_INITDB_DATABASE: smart_home
     ports:
-      - "5432:5432"                   # Пробрасываем порт для доступа
+      - "27017:27017"                   # Пробрасываем порт для доступа
     volumes:
-      - smart_home_postgres:/var/lib/postgresql/data  # Постоянное хранилище данных
+      - smart_home_mongo:/data/db  # Постоянное хранилище данных
     networks:
       - smart_home_network            # Сеть для связи с приложением
     healthcheck:
       # Проверка готовности базы данных к работе
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s                   # Проверяем каждые 10 секунд
       timeout: 5s                     # Таймаут проверки
       retries: 5                      # Количество попыток
@@ -45,14 +45,15 @@ services:
     container_name: smart_home_app
     restart: unless-stopped
     environment:
-      DB_HOST: postgres
-      DB_PORT: 5432
+      DB_HOST: mongodb
+      DB_PORT: 27017
       DB_USER: student
       DB_PASSWORD: student_secure_password
       DB_NAME: smart_home
+      MONGO_URI: mongodb://${DB_USER}:${DB_PASSWORD}@mongodb:27017/${DB_NAME}?authSource=admin
       APP_ENV: development
-      JWT_ACCESS_SECRET: your_super_secret_access_key_change_in_prod_12345
-      JWT_REFRESH_SECRET: your_super_secret_refresh_key_change_in_prod_67890
+      JWT_ACCESS_SECRET: your_super_secret_access_key_12345
+      JWT_REFRESH_SECRET: your_super_secret_refresh_key_67890
       JWT_ACCESS_EXPIRATION: 15
       JWT_REFRESH_EXPIRATION: 10080
       YANDEX_CLIENT_ID: ${YANDEX_CLIENT_ID}
@@ -66,24 +67,23 @@ services:
     ports:
       - "4200:4200"                   # Пробрасываем порт приложения
     depends_on:
-      postgres:
+      mongodb:
         condition: service_healthy
       redis:
         condition: service_healthy
     volumes:
       - ./app:/app/app                # Монтируем код для разработки
-      - ./migrations:/app/migrations
     networks:
       - smart_home_network
     
     # Команда запуска: сначала миграции, потом приложение
     command: >
-      sh -c "alembic upgrade head &&
-             uvicorn app.main:app --host 0.0.0.0 --port 4200"
+      sh -c "python -m app.init_db &&
+             uvicorn app.main:app --host 0.0.0.0 --port 4200 --reload"
 
 # Определяем том для постоянного хранения данных БД
 volumes:
-  smart_home_postgres:
+  smart_home_mongo:
   smart_home_redis:
 
 # Определяем сеть для взаимодействия сервисов

@@ -41,7 +41,7 @@ class UserLogin(BaseModel):
 
 class UserResponse(BaseModel):
     """Ответ с данными пользователя (без чувствительной информации)"""
-    id: int = Field(..., description="Уникальный идентификатор пользователя", example=1)
+    id: str = Field(..., description="Уникальный идентификатор пользователя", example="673c4f5a8b1f2e3d4c5a6b7c")
     email: str = Field(..., description="Email пользователя", example="user@example.com")
     full_name: Optional[str] = Field(None, description="Полное имя пользователя", example="Иван Иванов")
     created_at: datetime = Field(..., description="Дата регистрации")

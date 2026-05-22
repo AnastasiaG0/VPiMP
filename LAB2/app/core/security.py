@@ -43,7 +43,7 @@ def generate_jti() -> str:
     return str(uuid.uuid4())
 
 
-def generate_access_token(user_id: int) -> Tuple[str, str]:
+def generate_access_token(user_id: str) -> Tuple[str, str]:
     """
     Генерирует JWT Access Token.
     Возвращает (token, jti)
@@ -58,7 +58,7 @@ def generate_access_token(user_id: int) -> Tuple[str, str]:
     token = jwt.encode(payload, settings.JWT_ACCESS_SECRET, algorithm="HS256")
     return token, jti
 
-def generate_refresh_token(user_id: int) -> str:
+def generate_refresh_token(user_id: str) -> str:
     """Генерирует JWT Refresh Token"""
     payload = {
         "sub": str(user_id),
@@ -68,7 +68,7 @@ def generate_refresh_token(user_id: int) -> str:
     return jwt.encode(payload, settings.JWT_REFRESH_SECRET, algorithm="HS256")
 
 
-def verify_access_token(token: str) -> Tuple[Optional[int], Optional[str]]:
+def verify_access_token(token: str) -> Tuple[Optional[str], Optional[str]]:
     """
     Проверяет и декодирует Access Token.
     Возвращает (user_id, jti) или (None, None) при ошибке.
@@ -77,14 +77,14 @@ def verify_access_token(token: str) -> Tuple[Optional[int], Optional[str]]:
         payload = jwt.decode(token, settings.JWT_ACCESS_SECRET, algorithms=["HS256"])
         if payload.get("type") != "access":
             return None, None
-        user_id = int(payload.get("sub"))
+        user_id = payload.get("sub")
         jti = payload.get("jti")
         return user_id, jti
     except jwt.InvalidTokenError:
         return None, None
 
 
-def verify_refresh_token(token: str) -> Optional[int]:
+def verify_refresh_token(token: str) -> Optional[str]:
     """
     Проверяет Refresh Token.
     Возвращает user_id или None при ошибке.
@@ -93,6 +93,6 @@ def verify_refresh_token(token: str) -> Optional[int]:
         payload = jwt.decode(token, settings.JWT_REFRESH_SECRET, algorithms=["HS256"])
         if payload.get("type") != "refresh":
             return None
-        return int(payload.get("sub"))
+        return payload.get("sub")
     except jwt.InvalidTokenError:
         return None

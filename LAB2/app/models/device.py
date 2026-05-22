@@ -1,28 +1,39 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Float, Text, ForeignKey
-from sqlalchemy.sql import func
-from sqlalchemy.orm import relationship
-from app.core.database import Base
+from datetime import datetime
+from typing import Optional
+from pydantic import BaseModel, Field, field_validator
+from bson import ObjectId
 
 
-class Device(Base):
-    __tablename__ = "devices"
+class Device(BaseModel):
+    """Модель устройства для MongoDB"""
+    id: Optional[str] = Field(default=None, alias="_id")
+    user_id: str  # Строковый ID пользователя
+    name: str
+    device_type: str
+    location: str
+    status: bool = False
+    value: Optional[float] = None
+    description: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: Optional[datetime] = None
+    deleted_at: Optional[datetime] = None
     
-    # Первичный ключ с автоинкрементом
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    @field_validator('id', mode='before')
+    @classmethod
+    def convert_objectid(cls, v):
+        """Конвертирует ObjectId в строку"""
+        if isinstance(v, ObjectId):
+            return str(v)
+        return v
     
-    # Основные поля устройства
-    name = Column(String(100), nullable=False, index=True)
-    device_type = Column(String(50), nullable=False)
-    location = Column(String(100), nullable=False)
-    status = Column(Boolean, default=False)
-    value = Column(Float, nullable=True)
-    description = Column(Text, nullable=True)
+    class Config:
+        arbitrary_types_allowed = True
+        populate_by_name = True
     
-    # Временные метки
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-    deleted_at = Column(DateTime(timezone=True), nullable=True)
-
-    # Связь с пользователем
-    user = relationship("User", back_populates="devices")   
+    def dict(self, *args, **kwargs):
+        """Переопределяем dict для корректной сериализации"""
+        d = super().dict(*args, **kwargs)
+        if "_id" in d:
+            d["id"] = str(d["_id"])
+            del d["_id"]
+        return d
