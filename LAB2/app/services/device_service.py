@@ -224,8 +224,23 @@ class DeviceService:
         self.db.commit()
 
         # Инвалидируем кеш
-        cache_service.delete("devices:item", self.user_id, device_id)
-        self._invalidate_list_cache()
+        if cache_service.is_available():
+            import redis
+            r = redis.Redis(
+                host=settings.REDIS_HOST,
+                port=settings.REDIS_PORT,
+                password=settings.REDIS_PASSWORD,
+                decode_responses=True
+            )
+            # Удаляем все ключи списков и конкретных устройств
+            patterns = [
+                f"smart_home:devices:list:{self.user_id}:*",
+                f"smart_home:devices:item:{self.user_id}:*"
+            ]
+            for pattern in patterns:
+                keys = r.keys(pattern)
+                if keys:
+                    r.delete(*keys)
         
         return True
     
