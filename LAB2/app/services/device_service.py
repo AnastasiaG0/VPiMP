@@ -12,8 +12,8 @@ from app.core.database import mongodb
 class DeviceService:
     """Сервис для работы с устройствами в MongoDB"""
     
-    def __init__(self, db, user_id: str):  # <-- user_id теперь str (ObjectId)
-        self.db = db  # Это объект database из MongoDB
+    def __init__(self, db, user_id: str):
+        self.db = db  # Объект database из MongoDB
         self.user_id = user_id
     
     def _serialize_device(self, device: Device) -> dict:

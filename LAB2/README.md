@@ -1,10 +1,8 @@
-# Лабораторная работа №6
+# Лабораторная работа №7
 
-## Знакомство с MongoDB. Сравнение реляционных и документоориентированных СУБД
+## Хранение файлов с использованием MinIO (Object Storage)
 
 ## Описание проекта
-
-API для управления устройствами умного дома, переписанное с PostgreSQL на MongoDB. Проект демонстрирует миграцию с реляционной базы данных на документоориентированную с сохранением всей функциональности. Поддерживает аутентификацию JWT, OAuth через Яндекс ID, кеширование через Redis и мягкое удаление.
 
 ## Технологии
 
@@ -15,13 +13,13 @@ API для управления устройствами умного дома, 
 - JWT - аутентификация
 - Docker - контейнеризация
 - Swagger UI - автоматическая документация API
+- MinIO - хранилище файлов
 
 ## Требования
 
 - Docker и Docker Compose
 - cURL / Postman / Insomia
 - Настроенное окружение для работы с выбранным языком программирования (интерпретатор, компилятор, менеджер зависимостей, при необходимости)
-- Наличие клиента для работы с MongoDB (например, MongoDB Compas или CLI)
 
 ## Установка и запуск
 
@@ -63,133 +61,58 @@ docker-compose down -v
 
 ### Переменные окружения
 
-Пример файла переменных окружения:
+MINIO_ENDPOINT=minio:9000
+MINIO_ACCESS_KEY=minio_admin
+MINIO_SECRET_KEY=your_secure_password
+MINIO_BUCKET=smart-home-files
+MINIO_USE_SSL=false
+MAX_FILE_SIZE=10485760
+ALLOWED_IMAGE_TYPES=image/jpeg,image/png,image/jpg
 
-```bash
-DB_USER=your_db_user
-DB_PASSWORD=your_db_password
-DB_NAME=your_db_name
-DB_HOST=postgres
-DB_PORT=27017
+### Создание бакета в MinIO
 
-MONGO_URI=mongodb://student:student_secure_password@mongodb:27017/smart_home?authSource=admin
+При первом запуске бакет создается автоматически, но также можyj создать его вручную через консоль:
 
-APP_HOST=0.0.0.0
-APP_PORT=4200
-APP_ENV=development
+1. Откройте http://localhost:9001
+2. Войдите с учетными данными из .env
+3. Нажмите "Create Bucket"
+4. Введите имя бакета (например, "smart-home-files")
+5. Настройте политики доступа
 
-JWT_ACCESS_SECRET=super_secret_access_key
-JWT_REFRESH_SECRET=super_secret_refresh_key
-JWT_ACCESS_EXPIRATION=15
-JWT_REFRESH_EXPIRATION=10080
+### Доступ к сервисам
 
-YANDEX_CLIENT_ID=your_yandex_client_id
-YANDEX_CLIENT_SECRET=your_yandex_client_secret
-YANDEX_CALLBACK_URL=http://localhost:4200/auth/oauth/yandex/callback
-
-REDIS_HOST=redis
-REDIS_PORT=6379
-REDIS_PASSWORD=redis_secure_password
-REDIS_DB=0
-CACHE_TTL_DEFAULT=300
-```
+API Documentation: http://localhost:4200/api/docs
+MinIO Console: http://localhost:9001 (login: minio_admin / ваш пароль)
+MongoDB: localhost:27017
+Redis: localhost:6379
 
 ### API Эндпоинты
 
-| Метод  | URI                           | Описание                                        | Статус успеха  | Доступ                                  |
-| :----- | :---------------------------- | :---------------------------------------------- | :------------- | :-------------------------------------- |
-| POST   | `/auth/register`              | Регистрация нового пользователя                 | 201 Created    | Public                                  |
-| POST   | `/auth/login`                 | Вход (установка cookies)                        | 200 OK         | Public                                  |
-| POST   | `/auth/refresh`               | Обновление пары токенов                         | 200 OK         | Public (требуется valid Refresh Cookie) |
-| GET    | `/auth/whoami`                | Проверка статуса и данные пользователя          | 200 OK         | Private                                 |
-| POST   | `/auth/logout`                | Завершение текущей сессии                       | 200 OK         | Private                                 |
-| POST   | `/auth/logout-all`            | Завершение всех сессий пользователя             | 200 OK         | Private                                 |
-| GET    | `/auth/oauth/yandex`          | Инициация входа через Yandex ID                 | 302 Redirect   | Public                                  |
-| GET    | `/auth/oauth/yandex/callback` | Обработка ответа от Yandex                      | 302 Redirect   | Public                                  |
-| POST   | `/auth/forgot-password`       | Запрос на сброс пароля                          | 200 OK         | Public                                  |
-| POST   | `/auth/reset-password`        | Установка нового пароля                         | 200 OK         | Public                                  |
-| GET    | `/api/v1/devices`             | Получить список устройств (с пагинацией)        | 200 OK         | Private                                 |
-| GET    | `/api/v1/devices/{id}`        | Получить устройство по ID                       | 200 OK         | Private                                 |
-| POST   | `/api/v1/devices`             | Создать устройство                              | 201 Created    | Private                                 |
-| PUT    | `/api/v1/devices/{id}`        | Полное обновление устройства                    | 200 OK         | Private                                 |
-| PATCH  | `/api/v1/devices/{id}`        | Частичное обновление устройства                 | 200 OK         | Private                                 |
-| DELETE | `/api/v1/devices/{id}`        | Пометить устройство как удаленное (Soft Delete) | 204 No Content | Private                                 |
-| GET    | `/api/v1/devices/types/`      | Получить список всех типов устройств            | 200 OK         | Private                                 |
-| GET    | `/api/v1/devices/locations/`  | Получить список всех локаций устройств          | 200 OK         | Private                                 |
+| Метод  | URI                     | Описание                                    | Статус успеха  | Доступ                                    |
+| ------ | ----------------------- | ------------------------------------------- | -------------- | ----------------------------------------- |
+| POST   | /api/v1/files/          | Загрузка нового файла (multipart/form-data) | 201 Created    | Доступно для авторизованных пользователей |
+| GET    | /api/v1/files/{file_id} | Скачивание файла по ID                      | 200 OK         | Только владелец                           |
+| DELETE | /api/v1/files/{file_id} | Удаление файла (Soft Delete + MinIO)        | 204 No Content | Только владелец                           |
+| GET    | /api/v1/files/          | Вывод списка файлов                         | 200 OK         | Только владелец                           |
+| POST   | /api/v1/profile/        | Обновление профиля (включая avatarFileId)   | 200 OK         | Только владелец                           |
+| GET    | /api/v1/profile/        | Получение текущего профиля                  | 200 OK         | Только владелец                           |
 
-### Структура ключей Redis
+### Тестирование
 
-| Тип данных            | Формат ключа                                  | TTL     |
-| :-------------------- | :-------------------------------------------- | :------ |
-| Список устройств      | smart_home:devices:list:{user_id}:{hash}      | 300 сек |
-| Конкретное устройство | smart_home:devices:item:{user_id}:{device_id} | 300 сек |
-| Профиль пользователя  | smart_home:user:profile:{user_id}             | 300 сек |
-| JTI токен (сессия)    | smart_home:auth:access:{user_id}:{jti}        | 900 сек |
-
-### Работа с Redis CLI
-
-Подключение к Redis:
+1. Проверка здоровья всех сервисов
 
 ```bash
-docker exec -it smart_home_redis redis-cli -a redis_secure_password
+curl http://localhost:4200/health
 ```
 
-Просмотр ключей по паттерну:
+#### Аутентификация пользователя
 
-```bash
-KEYS 'smart_home:*'
-KEYS smart_home:devices:*
-```
-
-Получение значений ключа:
-
-```bash
-GET smart_home:devices:list:id:xxx
-GET "smart_home:user:profile:id"
-```
-
-Проверка времени жизни ключа (TTL):
-
-```bash
-TTL smart_home:devices:list:id:xxx
-TTL "smart_home:user:profile:id"
-TTL "smart_home:auth:access:id:xxx"
-```
-
-Удаление ключа (ручная инвалидация):
-
-```bash
-DEL smart_home:devices:list:id:xxx
-```
-
-Удаление по паттерну (массовая инвалидация):
-
-```bash
-UNLINK smart_home:devices:list:id:*
-```
-
-Очистка всей базы (для тестов):
-
-```bash
-FLUSHDB
-```
-
-### Примеры запросов (cURL)
-
-1. Регистрация пользователя
+2. Регистрация пользователя
 
 ```bash
 curl -X POST http://localhost:4200/auth/register \
   -H "Content-Type: application/json" \
   -d '{"email":"user1@example.com","password":"secret123","full_name":"User One"}'
-```
-
-2. Регистрация второго пользователя (с таким же паролем для проверки соли)
-
-```bash
-curl -X POST http://localhost:4200/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"email":"user2@example.com","password":"secret123","full_name":"User Two"}'
 ```
 
 3.  Вход пользователя
@@ -207,17 +130,101 @@ curl -X POST http://localhost:4200/auth/login \
 curl -X GET http://localhost:4200/auth/whoami -b cookies_user1.txt
 ```
 
-5. Создание устройства
+#### Работа с файлами
+
+5. Загрузка изображения
 
 ```bash
-curl -X POST http://localhost:4200/api/v1/devices \
-  -H "Content-Type: application/json" \
+curl -X POST http://localhost:4200/api/v1/files/ \
   -b cookies_user1.txt \
-  -d '{"name":"Living Room Lamp","device_type":"lamp","location":"Living Room","status":true,"value":75,"description":"Smart LED lamp"}'
+  -F "file=@/path/to/avatar.jpg"
 ```
 
-6. Получение списка всех устройств с пагинацией
+6. Получение списка файлов пользователя
 
 ```bash
-curl -X GET "http://localhost:4200/api/v1/devices?page=1&limit=10" -b cookies_user1.txt
+curl -X GET "http://localhost:4200/api/v1/files/?skip=0&limit=10" \
+  -b cookies_user1.txt
+```
+
+7. Скачивание файла
+
+```bash
+curl -X GET http://localhost:4200/api/v1/files/{file_id} \
+  -b cookies_user1.txt \
+  --output downloaded_file.jpg
+```
+
+#### Управление профилем
+
+8. Обновление профиля с аватаром
+
+```bash
+curl -X POST http://localhost:4200/api/v1/profile/ \
+  -b cookies_user1.txt \
+  -H "Content-Type: application/json" \
+  -d '{"full_name":"Updated Name","bio":"My bio","avatar_file_id":"550e8400-e29b-41d4-a716-446655440000"}'
+```
+
+9. Получение обновленного профиля
+
+```bash
+curl -X GET http://localhost:4200/api/v1/profile/ \
+  -b cookies_user1.txt
+```
+
+10. Удаление файла
+
+```bash
+curl -X DELETE http://localhost:4200/api/v1/files/550e8400-e29b-41d4-a716-446655440000 \
+  -b cookies_user1.txt
+```
+
+11. Выход из системы
+
+```bash
+curl -X POST http://localhost:4200/auth/logout \
+  -b cookies_user1.txt \
+  -c cookies_user1.txt
+```
+
+#### Проверка кеширования
+
+12. Подключение к Redis и просмотр ключей
+
+```bash
+redis-cli -a redis_secure_password
+KEYS *
+```
+
+13. Просмотр TTL (времени жизни) кеша
+
+```bash
+TTL "smart_home:user:profile:673c4f5a8b1f2e3d4c5a6b7c"
+```
+
+14. Выход из Redis
+
+```bash
+EXIT
+```
+
+#### Проверка MinIO Object Storage
+
+15. Проверка файлов через MinIO Client (mc)
+
+```bash
+docker exec smart_home_minio mc ls local/smart-home-files/
+```
+
+16. Просмотр файлов пользователя
+
+```bash
+docker exec smart_home_minio mc ls local/smart-home-files/users/673c4f5a8b1f2e3d4c5a6b7c/
+```
+
+17. Проверка метаданных объекта
+
+```bash
+docker exec smart_home_minio mc stat local/smart-home-files/users/673c4f5a8b1f2e3d4c5a6b7c/550e8400-e29b-41d4-a716-446655440000.jpg
 ```

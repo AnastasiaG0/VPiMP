@@ -29,6 +29,7 @@ class MongoDB:
         """Создает необходимые индексы для оптимизации запросов"""
         # Индексы для пользователей
         await self.database.users.create_index("email", unique=True)
+        # ✅ ИСПРАВЛЕНО: добавляем sparse=True для allow null values
         await self.database.users.create_index("yandex_id", unique=True, sparse=True)
         
         # Индексы для устройств
@@ -40,8 +41,14 @@ class MongoDB:
         # Индексы для refresh токенов
         await self.database.refresh_tokens.create_index("token_hash", unique=True)
         await self.database.refresh_tokens.create_index("expires_at")
-        
-        print("✅ Database indexes created")
+
+        # Индексы для файлов
+        await self.database.files.create_index("file_id", unique=True)
+        await self.database.files.create_index([("user_id", 1), ("deleted_at", 1)])
+        await self.database.files.create_index("created_at")
+
+        # Индексы для пользователей (добавляем avatar_file_id)
+        await self.database.users.create_index("avatar_file_id", sparse=True)
     
     async def get_collection(self, name: str):
         """Возвращает коллекцию MongoDB"""

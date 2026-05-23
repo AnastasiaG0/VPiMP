@@ -12,6 +12,8 @@ class User(BaseModel):
     salt: Optional[str] = None
     yandex_id: Optional[str] = None
     full_name: Optional[str] = None
+    avatar_file_id: Optional[str] = None  # Ссылка на файл аватара (UUID)
+    bio: Optional[str] = None  # Дополнительное поле для профиля
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: Optional[datetime] = None
     deleted_at: Optional[datetime] = None

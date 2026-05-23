@@ -1,5 +1,4 @@
 services:
-  # Сервис базы данных MongoDB
   mongodb:
     image: mongo:6
     container_name: smart_home_mongo
@@ -9,19 +8,17 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: student_secure_password
       MONGO_INITDB_DATABASE: smart_home
     ports:
-      - "27017:27017"                   # Пробрасываем порт для доступа
+      - "27017:27017"
     volumes:
-      - smart_home_mongo:/data/db  # Постоянное хранилище данных
+      - smart_home_mongo:/data/db
     networks:
-      - smart_home_network            # Сеть для связи с приложением
+      - smart_home_network
     healthcheck:
-      # Проверка готовности базы данных к работе
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 10s                   # Проверяем каждые 10 секунд
-      timeout: 5s                     # Таймаут проверки
-      retries: 5                      # Количество попыток
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  # Сервис Redis
   redis:
     image: redis:7-alpine
     container_name: smart_home_redis
@@ -39,9 +36,27 @@ services:
       timeout: 5s
       retries: 5
 
-  # Сервис приложения (Development с документацией)
+  minio:
+    image: minio/minio:RELEASE.2024-01-18T22-51-28Z
+    container_name: smart_home_minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - smart_home_minio:/data
+    networks:
+      - smart_home_network
+    command: server /data --console-address ":9001"
+    # Временно отключаем healthcheck для стабильности
+    healthcheck:
+      disable: true
+
   app:
-    build: .                          # Собираем из Dockerfile в текущей директории
+    build: .
     container_name: smart_home_app
     restart: unless-stopped
     environment:
@@ -50,7 +65,7 @@ services:
       DB_USER: student
       DB_PASSWORD: student_secure_password
       DB_NAME: smart_home
-      MONGO_URI: mongodb://${DB_USER}:${DB_PASSWORD}@mongodb:27017/${DB_NAME}?authSource=admin
+      MONGO_URI: mongodb://student:student_secure_password@mongodb:27017/smart_home?authSource=admin
       APP_ENV: development
       JWT_ACCESS_SECRET: your_super_secret_access_key_12345
       JWT_REFRESH_SECRET: your_super_secret_refresh_key_67890
@@ -64,28 +79,36 @@ services:
       REDIS_PASSWORD: ${REDIS_PASSWORD}
       REDIS_DB: 0
       CACHE_TTL_DEFAULT: 300
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+      MINIO_BUCKET: ${MINIO_BUCKET:-smart-home-files}
+      MINIO_USE_SSL: "false"
+      MAX_FILE_SIZE: ${MAX_FILE_SIZE:-10485760}
+      ALLOWED_IMAGE_TYPES: ${ALLOWED_IMAGE_TYPES:-image/jpeg,image/png,image/jpg}
     ports:
-      - "4200:4200"                   # Пробрасываем порт приложения
+      - "4200:4200"
     depends_on:
       mongodb:
         condition: service_healthy
       redis:
         condition: service_healthy
+      # minio - без healthcheck, просто ждем запуска
+      minio:
+        condition: service_started
     volumes:
-      - ./app:/app/app                # Монтируем код для разработки
+      - ./app:/app/app
     networks:
       - smart_home_network
-    
-    # Команда запуска: сначала миграции, потом приложение
     command: >
-      sh -c "python -m app.init_db &&
+      sh -c "sleep 5 &&
+             python -m app.init_db &&
              uvicorn app.main:app --host 0.0.0.0 --port 4200 --reload"
 
-# Определяем том для постоянного хранения данных БД
 volumes:
   smart_home_mongo:
   smart_home_redis:
+  smart_home_minio:
 
-# Определяем сеть для взаимодействия сервисов
 networks:
   smart_home_network:

@@ -11,23 +11,21 @@ from app.core.database import mongodb
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Управление жизненным циклом приложения"""
-    # Startup
+    """Manage application lifecycle"""
     await mongodb.connect()
     yield
-    # Shutdown
     await mongodb.disconnect()
 
 app = FastAPI(
     title="Smart Home API",
-    description="API для управления устройствами умного дома",
+    description="API for Smart Home device management",
     version="2.0.0",
     docs_url="/api/docs" if settings.is_docs_enabled else None,
     openapi_url="/api/openapi.json" if settings.is_docs_enabled else None,
     lifespan=lifespan
 )
 
-# Подключение маршрутов API
+# Include API routes
 app.include_router(v1_router)
 app.include_router(auth_router)
 
@@ -44,15 +42,62 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    """Проверка здоровья приложения"""
+    """Check application health"""
     db_status = "healthy" if mongodb.client else "unhealthy"
     return {
         "status": "healthy",
         "database": db_status,
-        "cache": "healthy"  # Проверка Redis
+        "cache": "healthy"
     }
 
-# Кастомизация OpenAPI схемы для улучшения документации
+
+# FIXED validation exception handler - convert bytes to string
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(
+    request: Request, 
+    exc: RequestValidationError
+):
+    # Convert errors to JSON serializable format
+    errors = []
+    for error in exc.errors():
+        # Convert any bytes in 'loc' to strings
+        loc = []
+        for item in error.get("loc", []):
+            if isinstance(item, bytes):
+                loc.append(item.decode("utf-8"))
+            else:
+                loc.append(str(item))
+        
+        errors.append({
+            "loc": loc,
+            "msg": str(error.get("msg", "")),
+            "type": str(error.get("type", ""))
+        })
+    
+    return JSONResponse(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        content={
+            "detail": "Validation error",
+            "errors": errors
+        }
+    )
+
+
+# General exception handler
+@app.exception_handler(Exception)
+async def general_exception_handler(
+    request: Request, 
+    exc: Exception
+):
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={
+            "detail": f"Internal server error: {str(exc)}"
+        }
+    )
+
+
+# Custom OpenAPI schema
 def custom_openapi():
     if app.openapi_schema:
         return app.openapi_schema
@@ -60,23 +105,22 @@ def custom_openapi():
     openapi_schema = get_openapi(
         title="Smart Home API",
         version="2.0.0",
-        description="API для управления устройствами умного дома",
+        description="API for Smart Home device management",
         routes=app.routes,
     )
     
-    # Добавляем схему безопасности для Bearer токена (для альтернативного способа)
     openapi_schema["components"]["securitySchemes"] = {
         "cookieAuth": {
             "type": "apiKey",
             "in": "cookie",
             "name": "access_token",
-            "description": "JWT токен, хранящийся в HttpOnly cookie. Автоматически отправляется браузером после входа."
+            "description": "JWT token stored in HttpOnly cookie"
         },
         "bearerAuth": {
             "type": "http",
             "scheme": "bearer",
             "bearerFormat": "JWT",
-            "description": "Альтернативный способ: Bearer <token>"
+            "description": "Alternative: Bearer <token>"
         }
     }
 
@@ -90,16 +134,14 @@ def custom_openapi():
         "/auth/reset-password",
         "/auth/oauth/yandex",
         "/auth/oauth/yandex/callback",
-        "/auth/whoami",  # whoami - публичный, он сам определяет статус
+        "/auth/whoami",
     ]
     
     for path in openapi_schema["paths"]:
-        # Проверяем, является ли путь публичным
         is_public = any(path.startswith(public_path) for public_path in public_paths)
         
         for method in openapi_schema["paths"][path]:
             if not is_public:
-                # Добавляем security к защищенным эндпоинтам
                 openapi_schema["paths"][path][method]["security"] = [
                     {"cookieAuth": []},
                     {"bearerAuth": []}
@@ -109,30 +151,3 @@ def custom_openapi():
     return app.openapi_schema
 
 app.openapi = custom_openapi
-# Обработчик ошибок валидации
-@app.exception_handler(RequestValidationError)
-async def validation_exception_handler(
-    request: Request, 
-    exc: RequestValidationError
-):
-    return JSONResponse(
-        status_code=status.HTTP_400_BAD_REQUEST,
-        content={
-            "detail": "Validation error",
-            "errors": exc.errors()
-        }
-    )
-
-
-# Обработчик непредвиденных ошибок
-@app.exception_handler(Exception)
-async def general_exception_handler(
-    request: Request, 
-    exc: Exception
-):
-    return JSONResponse(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={
-            "detail": "Internal server error"
-        }
-    )
