@@ -78,10 +78,9 @@ class MinIOService:
             with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
                 tmp_file_path = tmp_file.name
                 
-                # ✅ ПОТОКОВОЕ ЧТЕНИЕ: используем file.file (объект SpooledTemporaryFile)
-                # Читаем файл частями по 8KB, не загружая весь в память
+                # Потоковое чтение по 8KB, не загружая весь в память
                 while True:
-                    chunk = await file.read(8192)  # Читаем по 8KB
+                    chunk = await file.read(8192)
                     if not chunk:
                         break
                     tmp_file.write(chunk)
@@ -134,7 +133,7 @@ class MinIOService:
             Tuple (stream, content_type, size, metadata)
         """
         try:
-            # ✅ ПОТОКОВОЕ ПОЛУЧЕНИЕ: возвращаем поток, а не весь файл
+            # Потоковое получание
             response = self.client.get_object(
                 bucket_name=self.bucket,
                 object_name=object_key

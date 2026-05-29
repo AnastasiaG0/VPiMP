@@ -22,11 +22,16 @@ class FileService:
     
     def _validate_image_file(self, file: UploadFile):
         """Валидирует файл изображения"""
-        # Проверка MIME типа
         if file.content_type not in settings.ALLOWED_IMAGE_TYPES:
             raise HTTPException(
                 status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
                 detail=f"File type {file.content_type} not allowed. Allowed types: {', '.join(settings.ALLOWED_IMAGE_TYPES)}"
+            )
+        
+        if file.size and file.size > settings.MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"File size exceeds maximum allowed ({settings.MAX_FILE_SIZE // 1024 // 1024} MB)"
             )
         
         return True
