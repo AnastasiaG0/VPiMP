@@ -14,7 +14,7 @@ class MongoDB:
         
         # Проверяем соединение
         await self.client.admin.command('ping')
-        print(f"✅ Connected to MongoDB at {settings.DB_HOST}:{settings.DB_PORT}")
+        print(f"[OK] Connected to MongoDB at {settings.DB_HOST}:{settings.DB_PORT}")
         
         # Создаем индексы
         await self.create_indexes()
@@ -23,7 +23,7 @@ class MongoDB:
         """Закрывает соединение с MongoDB"""
         if self.client:
             self.client.close()
-            print("✅ Disconnected from MongoDB")
+            print("[OK] Disconnected from MongoDB")
     
     async def create_indexes(self):
         """Создает необходимые индексы для оптимизации запросов"""

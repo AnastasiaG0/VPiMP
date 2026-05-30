@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, Field, EmailStr, field_validator
 from bson import ObjectId
+import uuid
 
 
 class User(BaseModel):

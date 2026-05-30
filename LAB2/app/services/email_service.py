@@ -12,15 +12,15 @@ logger = logging.getLogger(__name__)
 
 
 class EmailService:
-    """Service for sending emails via SMTP"""
+    """Сервис для отправки электронных писем через SMTP"""
     
     def __init__(self):
         self._validate_config()
     
     def _validate_config(self) -> None:
-        """Validate SMTP configuration"""
+        """Проверяет конфигурацию SMTP"""
         if not settings.SMTP_HOST or not settings.SMTP_USER:
-            logger.warning("⚠️ SMTP not configured. Email sending will be simulated.")
+            logger.warning("SMTP не настроен. Отправка email будет симулироваться.")
             return
         
         missing = []
@@ -31,17 +31,17 @@ class EmailService:
         if not settings.SMTP_FROM: missing.append("SMTP_FROM")
         
         if missing:
-            logger.warning(f"⚠️ Missing SMTP variables: {', '.join(missing)}. Email sending may fail.")
-        
+            logger.warning(f"Отсутствуют переменные SMTP: {', '.join(missing)}. Отправка email может не работать.")
+    
     def _create_welcome_email(
         self,
         to_email: str,
         display_name: str,
         user_id: str
     ) -> MIMEMultipart:
-        """Create welcome email message"""
+        """Создает приветственное письмо"""
         
-        # Plain text version
+        # Текстовая версия
         text_content = f"""
 Здравствуйте, {display_name}!
 
@@ -64,7 +64,7 @@ http://localhost:4200/auth/login
 Команда Smart Home
         """
         
-        # HTML version
+        # HTML версия
         html_content = f"""
 <!DOCTYPE html>
 <html>
@@ -114,13 +114,13 @@ http://localhost:4200/auth/login
 </html>
         """
         
-        # Create message
+        # Создаем сообщение
         msg = MIMEMultipart("alternative")
         msg["Subject"] = "Добро пожаловать в Smart Home!"
         msg["From"] = settings.SMTP_FROM or settings.SMTP_USER
         msg["To"] = to_email
         
-        # Attach parts
+        # Прикрепляем части
         msg.attach(MIMEText(text_content, "plain", "utf-8"))
         msg.attach(MIMEText(html_content, "html", "utf-8"))
         
@@ -133,27 +133,25 @@ http://localhost:4200/auth/login
         user_id: str
     ) -> bool:
         """
-        Send welcome email to newly registered user
+        Отправляет приветственное письмо новому пользователю
         
-        Args:
-            to_email: Recipient email address
-            display_name: User's display name
-            user_id: User ID
+        Аргументы:
+            to_email: Email получателя
+            display_name: Отображаемое имя пользователя
+            user_id: ID пользователя
         
-        Returns:
-            bool: True if sent successfully
+        Возвращает:
+            bool: True если отправлено успешно
         """
-        # If SMTP not configured, simulate email sending
+        # Если SMTP не настроен, симулируем отправку email
         if not settings.SMTP_HOST or not settings.SMTP_USER:
-            logger.info(f"📧 [SIMULATED] Welcome email would be sent to {to_email}")
-            logger.info(f"   Display name: {display_name}, User ID: {user_id}")
             return True
         
         try:
-            # Create email
+            # Создаем письмо
             msg = self._create_welcome_email(to_email, display_name, user_id)
             
-            # Send email in thread pool (smtplib is blocking)
+            # Отправляем email
             loop = asyncio.get_event_loop()
             await loop.run_in_executor(
                 None,
@@ -162,29 +160,32 @@ http://localhost:4200/auth/login
                 to_email
             )
             
-            logger.info(f"✉️ Welcome email sent to {to_email}")
+            logger.info(f"Приветственное письмо отправлено на {to_email}")
             return True
             
         except smtplib.SMTPAuthenticationError as e:
-            logger.error(f"❌ SMTP authentication failed: {e}")
-            logger.error("   Please check your SMTP_USER and SMTP_PASS in .env")
+            logger.error(f"Ошибка аутентификации SMTP: {e}")
+            logger.error("   Проверьте SMTP_USER и SMTP_PASS в файле .env")
             raise
         except smtplib.SMTPException as e:
-            logger.error(f"❌ SMTP error: {e}")
+            logger.error(f"Ошибка SMTP: {e}")
             raise
         except Exception as e:
-            logger.error(f"❌ Failed to send email: {e}")
+            logger.error(f"Не удалось отправить письмо: {e}")
             raise
     
     def _send_sync(self, msg: MIMEMultipart, to_email: str) -> None:
-        """Synchronous email sending"""
-        context = None
-        
-        # Create SSL context for secure connection
-        if settings.SMTP_SECURE:
-            context = ssl.create_default_context()
-        
-        # Connect and send
-        with smtplib.SMTP_SSL(settings.SMTP_HOST, settings.SMTP_PORT, context=context) as server:
+        """Синхронная отправка email - поддерживает SSL и STARTTLS"""
+        if settings.SMTP_PORT == 587:
+            # STARTTLS (для Gmail)
+            server = smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT)
+            server.starttls()
             server.login(settings.SMTP_USER, settings.SMTP_PASS)
             server.send_message(msg)
+            server.quit()
+        else:
+            # SSL (для Yandex и других)
+            context = ssl.create_default_context()
+            with smtplib.SMTP_SSL(settings.SMTP_HOST, settings.SMTP_PORT, context=context) as server:
+                server.login(settings.SMTP_USER, settings.SMTP_PASS)
+                server.send_message(msg)

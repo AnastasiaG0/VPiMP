@@ -1,6 +1,8 @@
 from typing import Optional
 from datetime import datetime
 from bson import ObjectId
+import uuid
+import hashlib
 
 from app.models.user import User, RefreshToken
 from app.core.security import hash_password, verify_password, hash_token
@@ -11,6 +13,10 @@ class UserService:
     
     def __init__(self):
         self.collection = None
+
+    def _generate_yandex_id(self, email: str) -> str:
+        """Генерирует уникальный yandex_id для обычных пользователей"""
+        return f"local_{uuid.uuid4().hex}"
     
     async def _get_collection(self, name: str):
         """Ленивая инициализация коллекции"""
@@ -54,6 +60,10 @@ class UserService:
         """Создает нового пользователя"""
         collection = await mongodb.get_collection("users")
         
+        # Генерируем yandex_id, если не передан (т.е. для обычной регистрации)
+        if yandex_id is None:
+            yandex_id = self._generate_yandex_id(email)
+
         user_data = {
             "email": email,
             "full_name": full_name,

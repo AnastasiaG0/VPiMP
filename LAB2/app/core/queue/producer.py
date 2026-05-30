@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class EventProducer:
-    """Produces events to RabbitMQ"""
+    """Производит события в RabbitMQ"""
     
     def __init__(self):
         self._connection = RabbitMQConnection()
@@ -26,12 +26,9 @@ class EventProducer:
         exchange: str = None,
         event_id: Optional[str] = None
     ) -> bool:
-        """
-        Publish event to RabbitMQ exchange
-        """
+        """Публикует событие в обменник RabbitMQ"""
         exchange_name = exchange or settings.RMQ_EXCHANGE_EVENTS
         
-        # Create message structure
         message_data = {
             "eventId": event_id or str(uuid.uuid4()),
             "eventType": event_type,
@@ -44,13 +41,11 @@ class EventProducer:
             }
         }
         
-        # Serialize to JSON
         message_body = json.dumps(message_data, ensure_ascii=False).encode()
         
         try:
             channel = await self._connection.get_channel()
             
-            # Create persistent message
             message = aio_pika.Message(
                 message_body,
                 delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
@@ -59,18 +54,17 @@ class EventProducer:
                 timestamp=datetime.utcnow()
             )
             
-            # Get the exchange and publish
             exchange_obj = await channel.get_exchange(exchange_name)
             await exchange_obj.publish(
                 message,
                 routing_key=routing_key
             )
             
-            logger.info(f"📤 Event published: {event_type} | routing_key={routing_key} | event_id={message_data['eventId']}")
+            logger.info(f"[PUBLISH] {event_type} | routing_key={routing_key} | event_id={message_data['eventId']}")
             return True
             
         except Exception as e:
-            logger.error(f"❌ Failed to publish event: {e}")
+            logger.error(f"[ERROR] Failed to publish event: {e}")
             import traceback
             traceback.print_exc()
             return False
@@ -81,9 +75,7 @@ class EventProducer:
         email: str,
         full_name: Optional[str] = None
     ) -> bool:
-        """
-        Publish user.registered event
-        """
+        """Публикует событие user.registered"""
         payload = {
             "userId": user_id,
             "email": email,

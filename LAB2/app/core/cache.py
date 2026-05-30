@@ -34,9 +34,9 @@ class CacheService:
             )
             # Проверяем соединение
             self.client.ping()
-            print(f"✅ Connected to Redis at {settings.REDIS_HOST}:{settings.REDIS_PORT}")
+            print(f"[OK] Connected to Redis at {settings.REDIS_HOST}:{settings.REDIS_PORT}")
         except Exception as e:
-            print(f"⚠️ Redis connection failed: {e}. Caching disabled.")
+            print(f"[WARN] Redis connection failed: {e}. Caching disabled.")
             self.client = None
     
     def is_available(self) -> bool:

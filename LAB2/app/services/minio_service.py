@@ -29,9 +29,9 @@ class MinIOService:
                 secret_key=settings.MINIO_SECRET_KEY,
                 secure=settings.MINIO_USE_SSL
             )
-            print(f"✅ Connected to MinIO at {settings.MINIO_ENDPOINT}")
+            print(f"[OK] Connected to MinIO at {settings.MINIO_ENDPOINT}")
         except Exception as e:
-            print(f"❌ MinIO connection failed: {e}")
+            print(f"[ERROR] MinIO connection failed: {e}")
             raise
     
     def _ensure_bucket(self):
@@ -39,11 +39,11 @@ class MinIOService:
         try:
             if not self.client.bucket_exists(self.bucket):
                 self.client.make_bucket(self.bucket)
-                print(f"✅ Created bucket: {self.bucket}")
+                print(f"[OK] Created bucket: {self.bucket}")
             else:
-                print(f"✅ Bucket already exists: {self.bucket}")
+                print(f"[OK] Bucket already exists: {self.bucket}")
         except Exception as e:
-            print(f"⚠️ Bucket creation error: {e}")
+            print(f"[WARN] Bucket creation error: {e}")
     
     async def upload_file(
         self, 
