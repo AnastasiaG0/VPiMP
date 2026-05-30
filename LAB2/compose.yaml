@@ -51,9 +51,31 @@ services:
     networks:
       - smart_home_network
     command: server /data --console-address ":9001"
-    # Временно отключаем healthcheck для стабильности
     healthcheck:
-      disable: true
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: smart_home_rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS}
+    ports:
+      - "5672:5672"   # AMQP протокол
+      - "15672:15672" # Management UI
+    volumes:
+      - smart_home_rabbitmq:/var/lib/rabbitmq
+    networks:
+      - smart_home_network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   app:
     build: .
@@ -86,6 +108,21 @@ services:
       MINIO_USE_SSL: "false"
       MAX_FILE_SIZE: ${MAX_FILE_SIZE:-10485760}
       ALLOWED_IMAGE_TYPES: ${ALLOWED_IMAGE_TYPES:-image/jpeg,image/png,image/jpg}
+      # RabbitMQ
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASS: ${RABBITMQ_PASS}
+      # Настройки очередей
+      QUEUE_USER_REGISTERED: ${QUEUE_USER_REGISTERED:-wp.auth.user.registered}
+      # SMTP
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT:-465}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+      SMTP_FROM: ${SMTP_FROM}
+      SMTP_SECURE: ${SMTP_SECURE:-true}
+      # Настройки очередей
     ports:
       - "4200:4200"
     depends_on:
@@ -93,9 +130,10 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      # minio - без healthcheck, просто ждем запуска
       minio:
         condition: service_started
+      rabbitmq:
+        condition: service_healthy
     volumes:
       - ./app:/app/app
     networks:
@@ -109,6 +147,7 @@ volumes:
   smart_home_mongo:
   smart_home_redis:
   smart_home_minio:
+  smart_home_rabbitmq:
 
 networks:
   smart_home_network:

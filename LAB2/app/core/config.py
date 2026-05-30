@@ -53,9 +53,29 @@ class Settings:
     MAX_FILE_SIZE: int = int(os.getenv("MAX_FILE_SIZE", "10485760"))  # 10 MB
     ALLOWED_IMAGE_TYPES: list = os.getenv("ALLOWED_IMAGE_TYPES", "image/jpeg,image/png,image/jpg").split(",")
 
-    # Для формирования публичных URL (если нужно)
+    # Для формирования публичных URL
     MINIO_EXTERNAL_ENDPOINT: str = os.getenv("MINIO_EXTERNAL_ENDPOINT", "localhost:9000")
+
+    # RabbitMQ
+    RABBITMQ_HOST: str = os.getenv("RABBITMQ_HOST", "localhost")
+    RABBITMQ_PORT: int = int(os.getenv("RABBITMQ_PORT", "5672"))
+    RABBITMQ_USER: str = os.getenv("RABBITMQ_USER", "guest")
+    RABBITMQ_PASS: str = os.getenv("RABBITMQ_PASS", "guest")
+
+    # Queue names (dot notation: wp.module.action)
+    RMQ_QUEUE_USER_REGISTERED: str = os.getenv("QUEUE_USER_REGISTERED", "wp.auth.user.registered")
+    RMQ_DLQ_USER_REGISTERED: str = f"{RMQ_QUEUE_USER_REGISTERED}.dlq"
+    RMQ_EXCHANGE_EVENTS: str = "app.events"
+    RMQ_DLX_EXCHANGE: str = "app.dlx"
+    RMQ_ROUTING_KEY_USER_REGISTERED: str = "user.registered"
     
+    # SMTP
+    SMTP_HOST: str = os.getenv("SMTP_HOST", "")
+    SMTP_PORT: int = int(os.getenv("SMTP_PORT", "465"))
+    SMTP_USER: str = os.getenv("SMTP_USER", "")
+    SMTP_PASS: str = os.getenv("SMTP_PASS", "")
+    SMTP_FROM: str = os.getenv("SMTP_FROM", "")
+    SMTP_SECURE: bool = os.getenv("SMTP_SECURE", "true").lower() == "true"
 
     @property
     def is_docs_enabled(self) -> bool:

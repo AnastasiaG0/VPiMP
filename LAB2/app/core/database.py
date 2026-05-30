@@ -29,7 +29,6 @@ class MongoDB:
         """Создает необходимые индексы для оптимизации запросов"""
         # Индексы для пользователей
         await self.database.users.create_index("email", unique=True)
-        # ✅ ИСПРАВЛЕНО: добавляем sparse=True для allow null values
         await self.database.users.create_index("yandex_id", unique=True, sparse=True)
         
         # Индексы для устройств

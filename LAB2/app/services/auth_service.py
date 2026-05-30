@@ -10,14 +10,20 @@ from app.core.security import (
 )
 from app.core.config import settings
 from app.core.cache import cache_service
+from app.core.queue.producer import EventProducer
+
 
 class AuthService:
+    """Сервис аутентификации и авторизации с поддержкой асинхронных событий"""
+    
     def __init__(self, db):
         self.db = db
         self.user_service = UserService()
+        self.event_producer = EventProducer()
     
     async def register_user(self, user_data: UserCreate):
-        """Регистрация нового пользователя"""
+        """Регистрация нового пользователя с публикацией события"""
+        # Проверка существующего пользователя
         existing = await self.user_service.get_user_by_email(user_data.email)
         if existing:
             raise HTTPException(
@@ -25,11 +31,28 @@ class AuthService:
                 detail="Email already registered"
             )
         
+        # Создание пользователя
         user = await self.user_service.create_user(
             email=user_data.email,
             password=user_data.password,
             full_name=user_data.full_name
         )
+        
+        # Публикация события user.registered для асинхронной отправки email
+        try:
+            published = await self.event_producer.publish_user_registered(
+                user_id=user.id,
+                email=user.email,
+                full_name=user.full_name
+            )
+            if published:
+                print(f"✅ User registered event published for {user.email}")
+            else:
+                print(f"⚠️ Failed to publish user registered event for {user.email}")
+        except Exception as e:
+            # Не проваливаем регистрацию, если публикация события не удалась
+            # Событие будет залогировано и может быть обработано позже
+            print(f"❌ Error publishing user.registered event: {e}")
         
         return user
     
@@ -46,24 +69,38 @@ class AuthService:
         return await self.user_service.get_user_by_email(email)
     
     async def create_or_update_yandex_user(self, yandex_id: str, email: str, name: str):
-        """Создание или обновление пользователя через Yandex"""
+        """Создание или обновление пользователя через Yandex OAuth"""
         user = await self.user_service.get_user_by_yandex_id(yandex_id)
         if user:
             return user
         
         user_by_email = await self.user_service.get_user_by_email(email)
         if user_by_email:
+            # Связываем существующего пользователя с Yandex ID
             await self.user_service.update_user(user_by_email.id, {"yandex_id": yandex_id})
             return await self.user_service.get_user_by_id(user_by_email.id)
         
-        return await self.user_service.create_user(
+        # Создаем нового пользователя через OAuth
+        user = await self.user_service.create_user(
             email=email,
             yandex_id=yandex_id,
             full_name=name
         )
+        
+        # Публикуем событие для OAuth пользователей
+        try:
+            await self.event_producer.publish_user_registered(
+                user_id=user.id,
+                email=user.email,
+                full_name=user.full_name
+            )
+        except Exception as e:
+            print(f"❌ Error publishing user.registered event for OAuth user: {e}")
+        
+        return user
     
     async def generate_tokens(self, user_id: str) -> Tuple[str, str]:
-        """Генерация пары токенов"""
+        """Генерация пары токенов (Access + Refresh)"""
         access_token, jti = generate_access_token(user_id)
         cache_service.set_jti(user_id, jti, settings.JWT_ACCESS_EXPIRATION * 60)
         
@@ -76,7 +113,7 @@ class AuthService:
         return access_token, refresh_token
     
     async def refresh_tokens(self, refresh_token: str) -> Optional[Tuple[str, str]]:
-        """Обновление пары токенов"""
+        """Обновление пары токенов по Refresh Token"""
         user_id = verify_refresh_token(refresh_token)
         if not user_id:
             return None
@@ -87,12 +124,14 @@ class AuthService:
         if not db_token:
             return None
         
+        # Отзываем использованный refresh token
         await self.user_service.revoke_refresh_token(token_hash)
         
+        # Генерируем новую пару
         return await self.generate_tokens(user_id)
     
     async def revoke_token(self, refresh_token: str = None, access_jti: str = None, user_id: str = None):
-        """Отзыв токена"""
+        """Отзыв конкретного токена"""
         if refresh_token:
             token_hash = hash_token(refresh_token)
             await self.user_service.revoke_refresh_token(token_hash)
@@ -103,7 +142,7 @@ class AuthService:
         return True
     
     async def revoke_all_user_tokens(self, user_id: str):
-        """Отзыв всех токенов пользователя"""
+        """Отзыв всех токенов пользователя (logout all)"""
         await self.user_service.revoke_all_user_tokens(user_id)
         cache_service.delete_all_user_jti(user_id)
         return True
@@ -113,6 +152,7 @@ class AuthService:
         user = await self.get_user_by_email(email)
         if not user:
             return None
+        # В упрощенной реализации возвращаем email как токен
         return email
     
     async def reset_password(self, email: str, token: str, new_password: str) -> bool:
@@ -132,5 +172,6 @@ class AuthService:
             "salt": salt
         })
         
+        # Отзываем все токены после смены пароля
         await self.revoke_all_user_tokens(user.id)
         return True

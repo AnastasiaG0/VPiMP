@@ -8,12 +8,40 @@ from app.api.v1 import router as v1_router
 from app.auth.router import router as auth_router
 from app.core.config import settings
 from app.core.database import mongodb
+from app.core.queue.consumer import EventConsumer
+import asyncio
+import logging
+
+logger = logging.getLogger(__name__)
+
+# Global consumer instance
+_event_consumer = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage application lifecycle"""
+    global _event_consumer
+    
+    # Startup
     await mongodb.connect()
+    
+    # Start RabbitMQ consumer
+    try:
+        print("🔄 Initializing RabbitMQ consumer...")
+        _event_consumer = EventConsumer()
+        # Run consumer in background task
+        asyncio.create_task(_event_consumer.start())
+        print("🚀 RabbitMQ consumer started successfully")
+    except Exception as e:
+        print(f"❌ Failed to start RabbitMQ consumer: {e}")
+        import traceback
+        traceback.print_exc()
+    
     yield
+    
+    # Shutdown
+    if _event_consumer:
+        await _event_consumer.stop()
     await mongodb.disconnect()
 
 app = FastAPI(
@@ -36,7 +64,8 @@ async def root():
         "message": "Smart Home API",
         "version": "2.0.0",
         "database": "MongoDB",
-        "docs": "/api/docs" if settings.is_docs_enabled else None
+        "docs": "/api/docs" if settings.is_docs_enabled else None,
+        "async_events": "RabbitMQ"
     }
 
 
@@ -47,7 +76,8 @@ async def health_check():
     return {
         "status": "healthy",
         "database": db_status,
-        "cache": "healthy"
+        "cache": "healthy",
+        "queue": "configured"
     }
 
 
