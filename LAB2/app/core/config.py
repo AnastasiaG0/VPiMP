@@ -9,7 +9,7 @@ class Settings:
     """Класс для хранения настроек приложения"""
     
     # Настройки базы данных
-    DB_HOST: str = os.getenv("DB_HOST", "localhost")
+    DB_HOST: str = os.getenv("DB_HOST", "mongo.smart-home.svc.cluster.local")
     DB_PORT: int = int(os.getenv("DB_PORT", "27017"))
     DB_USER: str = os.getenv("DB_USER", "student")
     DB_PASSWORD: str = os.getenv("DB_PASSWORD", "student_secure_password")

@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: api-config
+  namespace: smart-home
+  labels:
+    app: api
+data:
+  APP_ENV: "production" #development
+  APP_HOST: "0.0.0.0"
+  APP_PORT: "4200"
+
+  DB_HOST: "mongo.smart-home.svc.cluster.local"
+  DB_PORT: "27017"
+  DB_USER: "student"
+  DB_NAME: "smart_home"
+
+  JWT_ACCESS_EXPIRATION: "15"
+  JWT_REFRESH_EXPIRATION: "10080"
+
+  REDIS_HOST: "redis.smart-home.svc.cluster.local"
+  REDIS_PORT: "6379"
+  REDIS_DB: "0"
+  CACHE_TTL_DEFAULT: "300"
+
+  MINIO_ENDPOINT: "minio.smart-home.svc.cluster.local:9000"
+  MINIO_BUCKET: "smart-home-files"
+  MINIO_USE_SSL: "false"
+  MAX_FILE_SIZE: "10485760"
+  ALLOWED_IMAGE_TYPES: "image/jpeg,image/png,image/jpg"
+  MINIO_EXTERNAL_ENDPOINT: "localhost:9000"
+
+  RABBITMQ_HOST: "rabbitmq.smart-home.svc.cluster.local"
+  RABBITMQ_PORT: "5672"
+  QUEUE_USER_REGISTERED: "wp.auth.user.registered"
+
+  RMQ_EXCHANGE_EVENTS: "app.events"
+  RMQ_DLX_EXCHANGE: "app.dlx"
+  RMQ_ROUTING_KEY_USER_REGISTERED: "user.registered"
+
+  SMTP_HOST: "smtp.gmail.com"
+  SMTP_PORT: "587"
+  SMTP_SECURE: "false"
+
+  YANDEX_CALLBACK_URL: "http://localhost:4200/auth/oauth/yandex/callback"

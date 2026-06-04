@@ -1,4 +1,4 @@
-from contextlib import asynccontextmanager
+﻿from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
@@ -85,8 +85,6 @@ async def readiness_check():
     Readiness probe - проверяет готовность принимать трафик.
     Проверяет все зависимости: БД, Redis, RabbitMQ, MinIO.
     """
-    from app.core.cache import cache_service
-    
     errors = []
     
     # Проверка MongoDB
@@ -138,8 +136,6 @@ async def readiness_check():
 @app.get("/health")
 async def health_check():
     """Общая проверка здоровья"""
-    from app.core.cache import cache_service
-    
     db_status = "healthy" if mongodb.client else "unhealthy"
     cache_status = "healthy" if cache_service.is_available() else "unhealthy"
     

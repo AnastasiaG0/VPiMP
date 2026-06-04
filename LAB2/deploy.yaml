@@ -1,0 +1,62 @@
+﻿apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: smart-home
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      containers:
+      - name: api
+        image: wp-labs/api:1.0.0
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 4200
+        env:
+        - name: MONGO_URI
+          value: "mongodb://student:student_secure_password@mongo:27017/smart_home?authSource=admin"
+        - name: JWT_ACCESS_SECRET
+          value: "your_super_secret_access_key_12345"
+        - name: JWT_REFRESH_SECRET
+          value: "your_super_secret_refresh_key_67890"
+        - name: REDIS_HOST
+          value: "redis"
+        - name: REDIS_PORT
+          value: "6379"
+        - name: MINIO_ENDPOINT
+          value: "minio:9000"
+        - name: MINIO_ACCESS_KEY
+          value: "minio_admin"
+        - name: MINIO_SECRET_KEY
+          value: "minio_secure_password"
+        - name: RABBITMQ_HOST
+          value: "rabbitmq"
+        - name: RABBITMQ_USER
+          value: "student"
+        - name: RABBITMQ_PASS
+          value: "student_secure_rabbit_pass"
+        - name: YANDEX_CLIENT_ID
+          value: "779f5f109ee045d5b98bb78af6a090b3"
+        - name: YANDEX_CLIENT_SECRET
+          value: "1139a2317ec947a2b576c5a356580856"
+        - name: YANDEX_CALLBACK_URL
+          value: "http://localhost:4200/auth/oauth/yandex/callback"
+        - name: SMTP_HOST
+          value: "smtp.gmail.com"
+        - name: SMTP_PORT
+          value: "587"
+        - name: SMTP_USER
+          value: "gummel543@gmail.com"
+        - name: SMTP_PASS
+          value: "kyeu jysu infs ujsl"
+        - name: SMTP_FROM
+          value: "gummel543@gmail.com"
+        - name: SMTP_SECURE
+          value: "false"
