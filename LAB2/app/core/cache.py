@@ -133,6 +133,36 @@ class CacheService:
         """Удаляет все JTI токены пользователя (logout all)"""
         return self.delete_pattern(f"auth:access:{user_id}")
 
+    def acquire_lock(self, lock_key: str, lock_value: str, ttl: int = 30) -> bool:
+        """Распределённая блокировка в Redis"""
+        if not self.is_available():
+            return True
+        
+        try:
+            return self.client.set(lock_key, lock_value, nx=True, ex=ttl)
+        except Exception as e:
+            print(f"Lock acquire error: {e}")
+            return True
+
+    def release_lock(self, lock_key: str, lock_value: str) -> bool:
+        """Освобождает распределённую блокировку."""
+        if not self.is_available():
+            return True
+        
+        unlock_script = """
+        if redis.call("get", KEYS[1]) == ARGV[1] then
+            return redis.call("del", KEYS[1])
+        else
+            return 0
+        end
+        """
+        try:
+            result = self.client.eval(unlock_script, 1, lock_key, lock_value)
+            return result == 1
+        except Exception as e:
+            print(f"Lock release error: {e}")
+            return True
+
 
 # Создаем глобальный экземпляр
 cache_service = CacheService()

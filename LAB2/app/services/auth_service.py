@@ -1,6 +1,7 @@
 from typing import Optional, Tuple
 from datetime import datetime, timedelta, timezone
 from fastapi import HTTPException, status
+import uuid
 
 from app.services.user_service import UserService
 from app.auth.schemas import UserCreate
@@ -22,39 +23,51 @@ class AuthService:
         self.event_producer = EventProducer()
     
     async def register_user(self, user_data: UserCreate):
-        """Регистрация нового пользователя с публикацией события"""
-        # Проверка существующего пользователя
-        existing = await self.user_service.get_user_by_email(user_data.email)
-        if existing:
+        """Регистрация нового пользователя с распределённой блокировкой"""
+        
+        lock_value = str(uuid.uuid4())
+        lock_key = f"lock:user:register:{user_data.email}"
+        
+        # Пытаемся получить блокировку
+        if not cache_service.acquire_lock(lock_key, lock_value, ttl=30):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="Email already registered"
+                detail="Registration in progress, please retry"
             )
         
-        # Создание пользователя
-        user = await self.user_service.create_user(
-            email=user_data.email,
-            password=user_data.password,
-            full_name=user_data.full_name
-        )
-        
-        # Публикация события user.registered для асинхронной отправки email
         try:
-            published = await self.event_producer.publish_user_registered(
-                user_id=user.id,
-                email=user.email,
-                full_name=user.full_name
+            # Проверка существующего пользователя
+            existing = await self.user_service.get_user_by_email(user_data.email)
+            if existing:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Email already registered"
+                )
+            
+            # Создание пользователя
+            user = await self.user_service.create_user(
+                email=user_data.email,
+                password=user_data.password,
+                full_name=user_data.full_name
             )
-            if published:
-                print(f"✅ User registered event published for {user.email}")
-            else:
-                print(f"⚠️ Failed to publish user registered event for {user.email}")
-        except Exception as e:
-            # Не проваливаем регистрацию, если публикация события не удалась
-            # Событие будет залогировано и может быть обработано позже
-            print(f"❌ Error publishing user.registered event: {e}")
+            
+            # Публикация события
+            try:
+                published = await self.event_producer.publish_user_registered(
+                    user_id=user.id,
+                    email=user.email,
+                    full_name=user.full_name
+                )
+                if published:
+                    print(f"✅ User registered event published for {user.email}")
+            except Exception as e:
+                print(f"❌ Error publishing user.registered event: {e}")
+            
+            return user
         
-        return user
+        finally:
+            # Всегда освобождаем блокировку
+            cache_service.release_lock(lock_key, lock_value)
     
     async def authenticate(self, email: str, password: str):
         """Аутентификация пользователя"""
